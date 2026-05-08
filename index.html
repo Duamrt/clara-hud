@@ -1072,17 +1072,34 @@
     else startRecording();
   });
 
-  // Registrar Service Worker (PWA) - update suave (sem reload automático)
+  // Service Worker - mata qualquer SW velho ANTES de registrar o novo
+  // Evita loop com versões antigas que tinham skipWaiting agressivo
   if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js")
-        .then(reg => {
-          console.log("[PWA] SW registrado:", reg.scope);
-          // Verifica nova versão a cada 5 min (sem aplicar imediatamente)
-          // Nova versão entra em vigor quando usuário fechar e reabrir.
-          setInterval(() => reg.update().catch(() => {}), 5 * 60 * 1000);
-        })
-        .catch(err => console.warn("[PWA] SW falhou:", err));
+    window.addEventListener("load", async () => {
+      try {
+        // Detecta versões velhas (v1.0-v1.3) e remove tudo
+        const KILL_VERSION_KEY = "clara-sw-kill-v2";
+        const alreadyKilled = localStorage.getItem(KILL_VERSION_KEY);
+        if (!alreadyKilled) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          for (const r of regs) await r.unregister();
+          const cacheKeys = await caches.keys();
+          for (const k of cacheKeys) {
+            // Mata caches de versões anteriores
+            if (k.includes("v1.0") || k.includes("v1.1") || k.includes("v1.2") || k.includes("v1.3")) {
+              await caches.delete(k);
+            }
+          }
+          localStorage.setItem(KILL_VERSION_KEY, "1");
+          console.log("[PWA] SW velho removido");
+        }
+
+        const reg = await navigator.serviceWorker.register("./service-worker.js");
+        console.log("[PWA] SW registrado:", reg.scope);
+        setInterval(() => reg.update().catch(() => {}), 5 * 60 * 1000);
+      } catch (err) {
+        console.warn("[PWA] SW falhou:", err);
+      }
     });
   }
 </script>
