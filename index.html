@@ -300,6 +300,99 @@
   }
   .system-line .right { color: var(--accent-soft); }
 
+  /* === MOBILE (portrait) === */
+  @media (max-width: 700px) {
+    .app {
+      padding: 20px 14px 16px;
+      row-gap: 14px;
+      grid-template-rows: auto auto 1fr auto auto;
+    }
+    .corner { width: 26px; height: 26px; }
+    .corner.tl, .corner.tr { top: 8px; }
+    .corner.tl, .corner.bl { left: 8px; }
+    .corner.tr, .corner.br { right: 8px; }
+    .corner.bl, .corner.br { bottom: 8px; }
+
+    /* HEADER mobile */
+    header { gap: 12px; }
+    .weather .loc, .weather .cond {
+      font-size: 0.5rem; letter-spacing: 0.3em;
+    }
+    .weather .temp {
+      font-size: 1.8rem;
+    }
+    .clock .time {
+      font-size: 2.4rem;
+    }
+    .clock .date {
+      font-size: 0.5rem; letter-spacing: 0.25em;
+    }
+
+    /* TÍTULO mobile */
+    .title {
+      font-size: 0.55rem;
+      letter-spacing: 0.4em;
+    }
+
+    /* ESFERA mobile - tamanho compacto */
+    .clara-stage {
+      width: min(70vw, 320px);
+      height: min(70vw, 320px);
+    }
+
+    /* STATUS mobile */
+    .status {
+      font-size: 0.55rem;
+      letter-spacing: 0.3em;
+    }
+
+    /* FOOTER mobile - atalhos compactos */
+    footer { gap: 10px; }
+    .saas { gap: 8px; flex-wrap: wrap; justify-content: center; }
+    .saas a {
+      width: 42px; height: 42px;
+      font-size: 0.55rem;
+    }
+    .saas .item small {
+      font-size: 0.42rem; letter-spacing: 0.1em;
+    }
+    .system-line {
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.42rem;
+      letter-spacing: 0.25em;
+      text-align: center;
+    }
+
+    /* CHAT mobile - tela cheia */
+    .chat-panel {
+      width: 100vw;
+    }
+    .chat-header { padding: 16px 18px 12px; }
+    .chat-input-wrap { padding: 12px 14px 18px; }
+  }
+
+  /* === MOBILE pequeno (iPhone SE etc) === */
+  @media (max-width: 380px) {
+    .app { padding: 16px 10px 12px; row-gap: 10px; }
+    .clock .time { font-size: 2rem; }
+    .weather .temp { font-size: 1.5rem; }
+    .clara-stage { width: min(75vw, 280px); height: min(75vw, 280px); }
+    .saas a { width: 38px; height: 38px; font-size: 0.5rem; }
+  }
+
+  /* === LANDSCAPE mobile (telefone deitado) === */
+  @media (max-height: 500px) and (orientation: landscape) {
+    .app { padding: 12px 24px; row-gap: 8px; }
+    .clara-stage {
+      width: min(60vh, 200px);
+      height: min(60vh, 200px);
+    }
+    .clock .time { font-size: 1.8rem; }
+    .weather .temp { font-size: 1.4rem; }
+  }
+
   /* CHAT OVERLAY (clica na esfera → abre) */
   .chat-panel {
     position: fixed;
