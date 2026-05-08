@@ -24,21 +24,5 @@
       "purpose": "any maskable"
     }
   ],
-  "shortcuts": [
-    {
-      "name": "Abrir RPM Pro",
-      "url": "https://rpmpro.com.br",
-      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
-    },
-    {
-      "name": "Abrir DM Pay",
-      "url": "https://dmpayapp.com.br",
-      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
-    },
-    {
-      "name": "Abrir DM Smart",
-      "url": "https://app.dmstack.com.br",
-      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
-    }
-  ]
+  "shortcuts": []
 }

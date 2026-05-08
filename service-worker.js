@@ -1,6 +1,6 @@
 // Clara HUD — Service Worker
 // Cache-first pra assets estáticos. Atualiza em network change.
-const CACHE_VERSION = "clara-hud-v1.2.1";
+const CACHE_VERSION = "clara-hud-v1.3.0";
 const PRECACHE_ASSETS = [
   "./",
   "./index.html",
@@ -16,6 +16,13 @@ self.addEventListener("install", (event) => {
     caches.open(CACHE_VERSION).then((cache) => cache.addAll(PRECACHE_ASSETS))
       .then(() => self.skipWaiting())
   );
+});
+
+// Permite que a página force ativação imediata da nova versão
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
 });
 
 // Activate: limpa caches antigos
