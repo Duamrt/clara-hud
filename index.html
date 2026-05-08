@@ -495,20 +495,61 @@
     background: rgba(255,122,153,0.08);
   }
   .chat-input::placeholder { color: var(--text-faint); }
-  .chat-send {
+  .chat-send, .chat-mic {
     width: 42px; height: 42px;
-    background: linear-gradient(135deg, var(--accent), var(--accent-2));
     border: none; border-radius: 10px;
-    color: #1a0510;
-    font-size: 16px; font-weight: 700;
     cursor: pointer;
     display: flex; align-items: center; justify-content: center;
+    transition: transform 0.12s ease, box-shadow 0.15s ease, background 0.15s ease;
+    flex-shrink: 0;
+  }
+  .chat-send {
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: #1a0510;
+    font-size: 16px; font-weight: 700;
     box-shadow: 0 0 18px rgba(255,122,153,0.45);
-    transition: transform 0.12s ease, box-shadow 0.15s ease;
   }
   .chat-send:hover { transform: scale(1.06); box-shadow: 0 0 26px rgba(255,122,153,0.7); }
   .chat-send:active { transform: scale(0.96); }
   .chat-send:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  .chat-mic {
+    background: rgba(255,122,153,0.08);
+    border: 1px solid var(--border-soft);
+    color: var(--accent);
+    font-size: 18px;
+  }
+  .chat-mic:hover { background: rgba(255,122,153,0.18); border-color: var(--accent); }
+  .chat-mic.recording {
+    background: linear-gradient(135deg, #ff3060, #b8264a);
+    border-color: #ff3060;
+    color: #fff;
+    box-shadow: 0 0 18px rgba(255,48,96,0.7);
+    animation: mic-pulse 1.2s ease-in-out infinite;
+  }
+  @keyframes mic-pulse {
+    0%,100% { box-shadow: 0 0 14px rgba(255,48,96,0.55); }
+    50%     { box-shadow: 0 0 24px rgba(255,48,96,0.9); }
+  }
+  .chat-mic.processing { opacity: 0.5; pointer-events: none; }
+
+  /* Bubble com audio (resposta da Clara) */
+  .msg-audio-row {
+    display: flex; align-items: center; gap: 8px;
+    margin-top: 6px;
+    font-size: 0.7rem; opacity: 0.85;
+  }
+  .msg-audio-row button {
+    background: rgba(255,122,153,0.15);
+    border: 1px solid var(--border-soft);
+    color: var(--accent);
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    font-size: 11px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .msg-audio-row button:hover { background: rgba(255,122,153,0.3); }
 </style>
 </head>
 <body>
@@ -576,8 +617,9 @@
     </div>
     <form class="chat-input-wrap" id="chatForm">
       <textarea class="chat-input" id="chatInput" rows="1"
-                placeholder="Digite ou diga 'Hey Jarvis'..."
+                placeholder="Digite ou aperte o mic..."
                 autocomplete="off"></textarea>
+      <button type="button" class="chat-mic" id="chatMic" aria-label="Gravar áudio" title="Aperte e fale">🎤</button>
       <button type="submit" class="chat-send" id="chatSend" aria-label="Enviar">↑</button>
     </form>
   </aside>
@@ -810,10 +852,36 @@
     chatPanel.classList.remove("open");
     chatPanel.setAttribute("aria-hidden", "true");
   }
-  function appendMsg(role, text) {
+  function appendMsg(role, text, audioUrl) {
     const div = document.createElement("div");
     div.className = `msg ${role}`;
-    div.textContent = text;
+    if (text) {
+      const span = document.createElement("span");
+      span.textContent = text;
+      div.appendChild(span);
+    }
+    if (audioUrl) {
+      const row = document.createElement("div");
+      row.className = "msg-audio-row";
+      const btn = document.createElement("button");
+      btn.textContent = "▶";
+      btn.title = "Tocar de novo";
+      const audio = new Audio(audioUrl);
+      audio.preload = "auto";
+      btn.addEventListener("click", () => {
+        audio.currentTime = 0;
+        audio.play().catch(() => {});
+      });
+      row.appendChild(btn);
+      const lab = document.createElement("span");
+      lab.textContent = role === "user" ? "🎤 áudio enviado" : "🔊 voz da Clara";
+      row.appendChild(lab);
+      div.appendChild(row);
+      // Auto-play apenas para resposta da Clara
+      if (role === "clara") {
+        audio.play().catch(err => console.log("[autoplay bloqueado]", err));
+      }
+    }
     chatMsgs.appendChild(div);
     chatMsgs.scrollTop = chatMsgs.scrollHeight;
     return div;
@@ -847,9 +915,10 @@
   function renderRow(row) {
     if (seenIds.has(row.id)) return;
     seenIds.add(row.id);
+    const audioUrl = row.metadata && row.metadata.audio_url ? row.metadata.audio_url : null;
     if (row.role === "system") appendMsg("system", row.text);
-    else if (row.role === "user") appendMsg("user", row.text);
-    else if (row.role === "clara") appendMsg("clara", row.text);
+    else if (row.role === "user") appendMsg("user", row.text || "", audioUrl);
+    else if (row.role === "clara") appendMsg("clara", row.text || "", audioUrl);
   }
 
   // Carrega últimas 30 mensagens ao abrir
@@ -896,6 +965,111 @@
       appendMsg("system", "Erro ao enviar — verifica conexão.");
     }
     // Não chamamos appendMsg("user", ...) aqui — vem via subscribe
+  });
+
+  // === Mic recorder ===
+  const chatMic = document.getElementById("chatMic");
+  let mediaRecorder = null;
+  let recordedChunks = [];
+  let recordingStartTs = 0;
+
+  function pickMimeType() {
+    const candidates = [
+      "audio/webm;codecs=opus",
+      "audio/webm",
+      "audio/ogg;codecs=opus",
+      "audio/mp4",
+    ];
+    for (const m of candidates) {
+      if (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(m)) return m;
+    }
+    return "";
+  }
+
+  async function startRecording() {
+    if (mediaRecorder && mediaRecorder.state === "recording") return;
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (err) {
+      appendMsg("system", "Sem permissão de microfone — habilita nas configurações.");
+      return;
+    }
+    const mimeType = pickMimeType();
+    try {
+      mediaRecorder = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream);
+    } catch (err) {
+      appendMsg("system", "Navegador não suporta gravação de áudio.");
+      stream.getTracks().forEach(t => t.stop());
+      return;
+    }
+    recordedChunks = [];
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0) recordedChunks.push(e.data);
+    };
+    mediaRecorder.onstop = async () => {
+      stream.getTracks().forEach(t => t.stop());
+      const duration = (Date.now() - recordingStartTs) / 1000;
+      if (duration < 0.5) {
+        chatMic.classList.remove("recording", "processing");
+        return; // muito curto, ignora
+      }
+      const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || "audio/webm" });
+      await uploadAndSendAudio(blob);
+    };
+    recordingStartTs = Date.now();
+    mediaRecorder.start();
+    chatMic.classList.add("recording");
+    chatMic.textContent = "■";
+  }
+
+  function stopRecording() {
+    if (mediaRecorder && mediaRecorder.state === "recording") {
+      chatMic.classList.remove("recording");
+      chatMic.classList.add("processing");
+      chatMic.textContent = "⏳";
+      mediaRecorder.stop();
+    }
+  }
+
+  async function uploadAndSendAudio(blob) {
+    try {
+      const ext = (blob.type.includes("ogg") ? "ogg"
+                : blob.type.includes("mp4") ? "m4a"
+                : "webm");
+      const fileName = `${CHAT_SESSION_ID}/user-${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+      const { data: up, error: upErr } = await supa.storage
+        .from("clara-audio")
+        .upload(fileName, blob, { contentType: blob.type, upsert: false });
+      if (upErr) {
+        console.warn("[upload erro]", upErr);
+        appendMsg("system", "Falha ao enviar áudio.");
+        return;
+      }
+      const { data: pub } = supa.storage.from("clara-audio").getPublicUrl(fileName);
+      const audioUrl = pub.publicUrl;
+      const { error: insErr } = await supa.from("clara_messages").insert({
+        chat_session_id: CHAT_SESSION_ID,
+        role: "user",
+        source: "hud",
+        text: "[áudio]",
+        metadata: { audio_url: audioUrl },
+      });
+      if (insErr) console.warn("[insert audio erro]", insErr);
+    } catch (e) {
+      console.warn("[uploadAndSendAudio]", e);
+    } finally {
+      chatMic.classList.remove("recording", "processing");
+      chatMic.textContent = "🎤";
+    }
+  }
+
+  // Click toggle (simples, funciona em mobile + desktop)
+  chatMic.addEventListener("click", () => {
+    if (mediaRecorder && mediaRecorder.state === "recording") stopRecording();
+    else startRecording();
   });
 
   // Registrar Service Worker (PWA) - update suave (sem reload automático)
