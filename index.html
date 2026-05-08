@@ -805,33 +805,17 @@
     // Não chamamos appendMsg("user", ...) aqui — vem via subscribe
   });
 
-  // Registrar Service Worker (PWA) com auto-update
+  // Registrar Service Worker (PWA) - update suave (sem reload automático)
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker.register("./service-worker.js")
         .then(reg => {
           console.log("[PWA] SW registrado:", reg.scope);
-          // Verifica nova versão a cada 60s
-          setInterval(() => reg.update().catch(() => {}), 60_000);
-          // Quando nova versão estiver pronta, ativa imediatamente
-          reg.addEventListener("updatefound", () => {
-            const sw = reg.installing;
-            if (!sw) return;
-            sw.addEventListener("statechange", () => {
-              if (sw.state === "installed" && navigator.serviceWorker.controller) {
-                sw.postMessage({ type: "SKIP_WAITING" });
-              }
-            });
-          });
+          // Verifica nova versão a cada 5 min (sem aplicar imediatamente)
+          // Nova versão entra em vigor quando usuário fechar e reabrir.
+          setInterval(() => reg.update().catch(() => {}), 5 * 60 * 1000);
         })
         .catch(err => console.warn("[PWA] SW falhou:", err));
-      // Recarrega quando novo SW assumir controle
-      let refreshing = false;
-      navigator.serviceWorker.addEventListener("controllerchange", () => {
-        if (refreshing) return;
-        refreshing = true;
-        window.location.reload();
-      });
     });
   }
 </script>
