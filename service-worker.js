@@ -1,6 +1,6 @@
 // Clara HUD — Service Worker
 // Cache-first pra assets estáticos. Atualiza em network change.
-const CACHE_VERSION = "clara-hud-v1.0.0";
+const CACHE_VERSION = "clara-hud-v1.1.0";
 const PRECACHE_ASSETS = [
   "./",
   "./index.html",

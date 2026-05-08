@@ -123,7 +123,11 @@
     position: relative;
     width: min(45vh, 440px);
     height: min(45vh, 440px);
+    cursor: pointer;
+    transition: transform 0.25s ease, filter 0.25s ease;
   }
+  .clara-stage:hover { transform: scale(1.025); filter: brightness(1.1); }
+  .clara-stage:active { transform: scale(0.99); }
 
   /* Halo glow externo */
   .halo-outer {
@@ -294,6 +298,123 @@
     text-transform: uppercase;
   }
   .system-line .right { color: var(--accent-soft); }
+
+  /* CHAT OVERLAY (clica na esfera → abre) */
+  .chat-panel {
+    position: fixed;
+    top: 0; right: 0;
+    width: min(420px, 100vw);
+    height: 100vh;
+    background: rgba(12, 4, 12, 0.92);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    border-left: 1px solid var(--border-soft);
+    box-shadow: -10px 0 60px rgba(0,0,0,0.6), -20px 0 80px rgba(255,122,153,0.06);
+    transform: translateX(100%);
+    transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 50;
+    display: flex; flex-direction: column;
+  }
+  .chat-panel.open { transform: translateX(0); }
+
+  .chat-header {
+    padding: 22px 24px 16px;
+    border-bottom: 1px solid var(--border-soft);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .chat-header .title-block .name {
+    font-size: 0.9rem; letter-spacing: 0.4em; color: var(--accent);
+    text-shadow: 0 0 12px rgba(255,122,153,0.5); text-transform: uppercase;
+  }
+  .chat-header .title-block .sub {
+    font-size: 0.55rem; letter-spacing: 0.35em; opacity: 0.45;
+    text-transform: uppercase; margin-top: 4px;
+  }
+  .chat-close {
+    width: 32px; height: 32px;
+    background: transparent; border: 1px solid var(--border-soft);
+    border-radius: 6px; color: var(--accent);
+    font-size: 18px; line-height: 1; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+  .chat-close:hover { background: rgba(255,122,153,0.1); border-color: var(--accent); }
+
+  .chat-messages {
+    flex: 1; overflow-y: auto;
+    padding: 20px 22px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .chat-messages::-webkit-scrollbar { width: 6px; }
+  .chat-messages::-webkit-scrollbar-thumb { background: rgba(255,122,153,0.25); border-radius: 3px; }
+
+  .msg {
+    max-width: 85%;
+    padding: 10px 14px;
+    border-radius: 12px;
+    font-size: 0.82rem; line-height: 1.45;
+    word-wrap: break-word;
+  }
+  .msg.user {
+    align-self: flex-end;
+    background: linear-gradient(135deg, rgba(255,122,153,0.22), rgba(184,38,74,0.28));
+    border: 1px solid rgba(255,122,153,0.3);
+    color: #fff;
+    border-bottom-right-radius: 4px;
+  }
+  .msg.clara {
+    align-self: flex-start;
+    background: rgba(255,213,213,0.04);
+    border: 1px solid var(--border-soft);
+    color: var(--accent-soft);
+    border-bottom-left-radius: 4px;
+  }
+  .msg.system {
+    align-self: center;
+    background: transparent; border: none;
+    font-size: 0.7rem; opacity: 0.4; letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+
+  .chat-input-wrap {
+    padding: 14px 18px 22px;
+    border-top: 1px solid var(--border-soft);
+    display: flex; gap: 10px; align-items: center;
+  }
+  .chat-input {
+    flex: 1;
+    background: rgba(255,122,153,0.04);
+    border: 1px solid var(--border-soft);
+    border-radius: 10px;
+    padding: 12px 14px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.85rem;
+    outline: none;
+    resize: none;
+    min-height: 42px;
+    max-height: 120px;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .chat-input:focus {
+    border-color: var(--accent);
+    background: rgba(255,122,153,0.08);
+  }
+  .chat-input::placeholder { color: var(--text-faint); }
+  .chat-send {
+    width: 42px; height: 42px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    border: none; border-radius: 10px;
+    color: #1a0510;
+    font-size: 16px; font-weight: 700;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 18px rgba(255,122,153,0.45);
+    transition: transform 0.12s ease, box-shadow 0.15s ease;
+  }
+  .chat-send:hover { transform: scale(1.06); box-shadow: 0 0 26px rgba(255,122,153,0.7); }
+  .chat-send:active { transform: scale(0.96); }
+  .chat-send:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 </style>
 </head>
 <body>
@@ -320,7 +441,7 @@
     <div class="title">Clara · Assistente Pessoal</div>
 
     <div class="stage-wrap">
-      <div class="clara-stage">
+      <div class="clara-stage" id="claraStage" role="button" tabindex="0" aria-label="Abrir chat com a Clara">
         <div class="halo-outer"></div>
         <div class="core-stage" id="coreStage"></div>
       </div>
@@ -345,6 +466,27 @@
       </div>
     </footer>
   </div>
+
+  <!-- Chat overlay (clica na esfera pra abrir) -->
+  <aside class="chat-panel" id="chatPanel" aria-hidden="true">
+    <div class="chat-header">
+      <div class="title-block">
+        <div class="name">Clara</div>
+        <div class="sub">Conversa direta</div>
+      </div>
+      <button class="chat-close" id="chatClose" aria-label="Fechar chat">×</button>
+    </div>
+    <div class="chat-messages" id="chatMessages">
+      <div class="msg system">Início da conversa</div>
+      <div class="msg clara">Tô aqui, Chefe. Manda.</div>
+    </div>
+    <form class="chat-input-wrap" id="chatForm">
+      <textarea class="chat-input" id="chatInput" rows="1"
+                placeholder="Digite ou diga 'Hey Jarvis'..."
+                autocomplete="off"></textarea>
+      <button type="submit" class="chat-send" id="chatSend" aria-label="Enviar">↑</button>
+    </form>
+  </aside>
 
 <script>
   // Núcleo Jarvis — Múltiplos SVGs sobrepostos (cada camada gira como elemento HTML)
@@ -551,6 +693,66 @@
       `${dias[d.getDay()]} · ${d.getDate()} ${meses[d.getMonth()]} ${d.getFullYear()}`;
   }
   setInterval(tick, 30000); tick();
+
+  // === Chat Overlay ===
+  const claraStage = document.getElementById("claraStage");
+  const chatPanel  = document.getElementById("chatPanel");
+  const chatClose  = document.getElementById("chatClose");
+  const chatForm   = document.getElementById("chatForm");
+  const chatInput  = document.getElementById("chatInput");
+  const chatMsgs   = document.getElementById("chatMessages");
+
+  function openChat() {
+    chatPanel.classList.add("open");
+    chatPanel.setAttribute("aria-hidden", "false");
+    setTimeout(() => chatInput.focus(), 320);
+  }
+  function closeChat() {
+    chatPanel.classList.remove("open");
+    chatPanel.setAttribute("aria-hidden", "true");
+  }
+  function appendMsg(role, text) {
+    const div = document.createElement("div");
+    div.className = `msg ${role}`;
+    div.textContent = text;
+    chatMsgs.appendChild(div);
+    chatMsgs.scrollTop = chatMsgs.scrollHeight;
+    return div;
+  }
+
+  claraStage.addEventListener("click", openChat);
+  claraStage.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openChat(); }
+  });
+  chatClose.addEventListener("click", closeChat);
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && chatPanel.classList.contains("open")) closeChat();
+  });
+
+  // Auto-resize do textarea
+  chatInput.addEventListener("input", () => {
+    chatInput.style.height = "auto";
+    chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + "px";
+  });
+  // Enter envia, Shift+Enter quebra linha
+  chatInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      chatForm.requestSubmit();
+    }
+  });
+  chatForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const txt = chatInput.value.trim();
+    if (!txt) return;
+    appendMsg("user", txt);
+    chatInput.value = "";
+    chatInput.style.height = "auto";
+    // Backend ainda nao plugado - placeholder
+    setTimeout(() => {
+      appendMsg("system", "Backend não conectado ainda — envie pelo Telegram @Claraxd_bot");
+    }, 220);
+  });
 
   // Registrar Service Worker (PWA)
   if ("serviceWorker" in navigator) {
