@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Clara — Painel</title>
+<meta name="description" content="HUD da Clara — assistente pessoal do Duam.">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#ff7a99">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Clara">
+<meta name="mobile-web-app-capable" content="yes">
+<style>
+  :root {
+    --accent: #ff7a99;
+    --accent-2: #ff5577;
+    --accent-soft: #ffcfd9;
+    --accent-deep: #b8264a;
+    --bg-deep: #02020a;
+    --bg-mid: #0a0510;
+    --text: #ffd5d5;
+    --text-dim: rgba(255, 213, 213, 0.45);
+    --border-soft: rgba(255, 122, 153, 0.22);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100vw; height: 100vh;
+    overflow: hidden;
+    font-family: "JetBrains Mono", "Fira Code", -apple-system, "Segoe UI", monospace;
+    color: var(--text);
+    background:
+      radial-gradient(ellipse at 30% 20%, rgba(70, 18, 32, 0.35) 0%, transparent 50%),
+      radial-gradient(ellipse at 70% 80%, rgba(85, 22, 42, 0.3) 0%, transparent 55%),
+      radial-gradient(circle at center, var(--bg-mid) 0%, var(--bg-deep) 75%, #000 100%);
+    user-select: none;
+  }
+
+  /* Wireframe constelação de fundo (estilo Jarvis) */
+  .wireframe {
+    position: fixed; inset: 0;
+    width: 100vw; height: 100vh;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 0.55;
+  }
+  .wireframe line {
+    stroke: var(--accent);
+    stroke-width: 0.5;
+    opacity: 0.18;
+  }
+  .wireframe circle {
+    fill: var(--accent);
+    animation: pt-pulse 4s ease-in-out infinite;
+  }
+  .wireframe circle.bright {
+    fill: #ffe4ec;
+    filter: drop-shadow(0 0 4px var(--accent));
+  }
+  @keyframes pt-pulse {
+    0%, 100% { opacity: 0.4; }
+    50%      { opacity: 1;   }
+  }
+
+  /* Cantos HUD */
+  .corner {
+    position: fixed; width: 40px; height: 40px;
+    border: 1px solid var(--accent);
+    opacity: 0.4; z-index: 5; pointer-events: none;
+  }
+  .corner.tl { top: 16px; left: 16px; border-right: none; border-bottom: none; }
+  .corner.tr { top: 16px; right: 16px; border-left: none; border-bottom: none; }
+  .corner.bl { bottom: 16px; left: 16px; border-right: none; border-top: none; }
+  .corner.br { bottom: 16px; right: 16px; border-left: none; border-top: none; }
+
+  /* Layout grid 5 fileiras */
+  .app {
+    position: fixed; inset: 0;
+    display: grid;
+    grid-template-rows: auto auto 1fr auto auto;
+    padding: 36px 56px;
+    row-gap: 24px;
+    z-index: 2;
+  }
+
+  /* HEADER */
+  header { display: flex; justify-content: space-between; align-items: flex-start; }
+  .weather .loc, .weather .cond {
+    font-size: 0.6rem; letter-spacing: 0.45em; opacity: 0.55;
+    text-transform: uppercase;
+  }
+  .weather .temp {
+    font-size: 2.8rem; font-weight: 200; line-height: 1.05;
+    color: #fff; text-shadow: 0 0 16px rgba(255, 200, 210, 0.32);
+    margin: 2px 0;
+  }
+  .clock { text-align: right; }
+  .clock .time {
+    font-size: 4rem; font-weight: 100; line-height: 1;
+    color: var(--accent);
+    text-shadow: 0 0 16px rgba(255, 122, 153, 0.55);
+    letter-spacing: 0.04em;
+  }
+  .clock .date {
+    font-size: 0.6rem; letter-spacing: 0.4em; opacity: 0.55;
+    margin-top: 5px; text-transform: uppercase;
+  }
+
+  /* TÍTULO */
+  .title {
+    text-align: center;
+    font-size: 0.65rem;
+    letter-spacing: 0.7em;
+    opacity: 0.4;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+
+  /* NÚCLEO JARVIS — SVG denso */
+  .stage-wrap { display: flex; align-items: center; justify-content: center; }
+  .clara-stage {
+    position: relative;
+    width: min(45vh, 440px);
+    height: min(45vh, 440px);
+  }
+
+  /* Halo glow externo */
+  .halo-outer {
+    position: absolute; inset: -20%;
+    background: radial-gradient(circle at center,
+                rgba(255, 130, 150, 0.22) 0%,
+                rgba(220, 80, 130, 0.10) 35%,
+                transparent 70%);
+    border-radius: 50%;
+    animation: pulse-halo 5s ease-in-out infinite;
+    pointer-events: none;
+    will-change: transform, opacity;
+    z-index: 0;
+  }
+  @keyframes pulse-halo {
+    0%,100% { transform: scale(1);    opacity: 0.6; }
+    50%     { transform: scale(1.05); opacity: 1;   }
+  }
+
+  /* Stage do núcleo - cada camada é um SVG sobreposto */
+  .core-stage {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    z-index: 1;
+  }
+  .core-stage svg {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    overflow: visible;
+    transform-origin: center center;
+    will-change: transform;
+  }
+  .core-stage .layer-spin-cw    { animation: spin 38s linear infinite; }
+  .core-stage .layer-spin-ccw   { animation: spin 26s linear infinite reverse; }
+  .core-stage .layer-spin-slow  { animation: spin 90s linear infinite; }
+  .core-stage .layer-spin-fast  { animation: spin 14s linear infinite; }
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+  }
+
+  .core-stage .ring-line {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 1;
+  }
+  .core-stage .tick {
+    stroke: var(--accent);
+    stroke-width: 1;
+  }
+  .core-stage .radial {
+    stroke: var(--accent);
+    stroke-width: 0.4;
+    opacity: 0.35;
+  }
+  .core-stage .arc-bright {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 2.2;
+    filter: drop-shadow(0 0 6px var(--accent));
+  }
+  .core-stage .arc-soft {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 0.8;
+    opacity: 0.45;
+  }
+  .core-stage .node {
+    fill: var(--accent);
+    filter: drop-shadow(0 0 4px var(--accent));
+  }
+  .core-stage .node-bright {
+    fill: #ffe4ec;
+    filter: drop-shadow(0 0 6px var(--accent));
+  }
+  .core-stage .label {
+    fill: var(--accent);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    opacity: 0.7;
+  }
+  .core-stage .core-glow {
+    fill: url(#coreGrad);
+    animation: pulse-core 3.5s ease-in-out infinite;
+    transform-origin: center;
+    will-change: transform, opacity;
+  }
+  @keyframes pulse-core {
+    0%,100% { transform: scale(1);    opacity: 0.85; }
+    50%     { transform: scale(1.08); opacity: 1;    }
+  }
+  .core-stage .scan-layer {
+    animation: scan-spin 6s linear infinite;
+  }
+  .core-stage .scan {
+    stroke: var(--accent);
+    stroke-width: 1.5;
+    opacity: 0.6;
+    filter: drop-shadow(0 0 5px var(--accent));
+  }
+  .core-stage .layer-static { animation: none; }
+  @keyframes scan-spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+  }
+
+  /* STATUS */
+  .status {
+    text-align: center;
+    font-size: 0.65rem;
+    letter-spacing: 0.5em;
+    color: var(--accent-soft);
+    text-transform: uppercase;
+    opacity: 0.85;
+  }
+  .status .dot {
+    display: inline-block;
+    width: 6px; height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+    box-shadow: 0 0 6px var(--accent);
+    animation: blink 1.6s ease-in-out infinite;
+    vertical-align: middle;
+    margin-right: 12px;
+    margin-bottom: 2px;
+  }
+  @keyframes blink {
+    0%,100% { opacity: 1;   }
+    50%     { opacity: 0.3; }
+  }
+
+  /* FOOTER */
+  footer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+  }
+  .saas { display: flex; gap: 14px; }
+  .saas .item {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+  }
+  .saas a {
+    width: 50px; height: 50px;
+    border: 1px solid var(--border-soft);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--accent);
+    font-size: 0.65rem; font-weight: 600;
+    text-decoration: none;
+    background: rgba(255, 122, 153, 0.04);
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+    text-shadow: 0 0 8px rgba(255, 122, 153, 0.4);
+  }
+  .saas a:hover {
+    background: rgba(255, 122, 153, 0.15);
+    border-color: var(--accent);
+    transform: translateY(-2px);
+  }
+  .saas .item small {
+    font-size: 0.5rem; opacity: 0.4; letter-spacing: 0.18em;
+    color: var(--text-dim); text-transform: uppercase;
+  }
+  .system-line {
+    display: flex; justify-content: space-between; width: 100%;
+    font-size: 0.5rem; letter-spacing: 0.4em; opacity: 0.4;
+    text-transform: uppercase;
+  }
+  .system-line .right { color: var(--accent-soft); }
+</style>
+</head>
+<body>
+  <svg class="wireframe" id="wireframe" preserveAspectRatio="none"></svg>
+
+  <div class="corner tl"></div>
+  <div class="corner tr"></div>
+  <div class="corner bl"></div>
+  <div class="corner br"></div>
+
+  <div class="app">
+    <header>
+      <div class="weather">
+        <div class="loc">JUPI · PE</div>
+        <div class="temp">25°</div>
+        <div class="cond">CHUVISCO</div>
+      </div>
+      <div class="clock">
+        <div class="time" id="time">--:--</div>
+        <div class="date" id="date">---</div>
+      </div>
+    </header>
+
+    <div class="title">Clara · Assistente Pessoal</div>
+
+    <div class="stage-wrap">
+      <div class="clara-stage">
+        <div class="halo-outer"></div>
+        <div class="core-stage" id="coreStage"></div>
+      </div>
+    </div>
+
+    <div class="status">
+      <span class="dot"></span><span>Ouvindo · Diga "Hey Jarvis"</span>
+    </div>
+
+    <footer>
+      <div class="saas">
+        <div class="item"><a href="https://rpmpro.com.br" target="_blank">RPM</a><small>RPM Pro</small></div>
+        <div class="item"><a href="https://dmtechapp.com.br" target="_blank">DMT</a><small>DMTech</small></div>
+        <div class="item"><a href="https://sistema.edreng.com.br" target="_blank">EDR</a><small>EDR Sys</small></div>
+        <div class="item"><a href="https://dmpayapp.com.br" target="_blank">PAY</a><small>DM Pay</small></div>
+        <div class="item"><a href="https://app.dmstack.com.br" target="_blank">DMS</a><small>DM Smart</small></div>
+        <div class="item"><a href="obsidian://open" target="_blank">OBS</a><small>Obsidian</small></div>
+      </div>
+      <div class="system-line">
+        <span>DM Stack · Clara v1 · Telegram + Voz</span>
+        <span class="right">Gemini · ElevenLabs · Online</span>
+      </div>
+    </footer>
+  </div>
+
+<script>
+  // Núcleo Jarvis — Múltiplos SVGs sobrepostos (cada camada gira como elemento HTML)
+  (function buildCore() {
+    const stage = document.getElementById("coreStage");
+    const VB = "-220 -220 440 440";
+
+    // Helper: cria um SVG-camada
+    const layer = (cls, content) =>
+      `<svg class="${cls}" viewBox="${VB}" preserveAspectRatio="xMidYMid meet">${content}</svg>`;
+
+    // Defs precisam ficar num SVG visível ou os outros não acham gradientes
+    const defs = `
+      <defs>
+        <radialGradient id="coreGrad" cx="50%" cy="50%" r="50%">
+          <stop offset="0%"  stop-color="#ffe4ec" stop-opacity="0.95"/>
+          <stop offset="35%" stop-color="#ff7a99" stop-opacity="0.7"/>
+          <stop offset="70%" stop-color="#b8264a" stop-opacity="0.25"/>
+          <stop offset="100%" stop-color="#4a0a1f" stop-opacity="0"/>
+        </radialGradient>
+      </defs>`;
+
+    let html = "";
+
+    // Camada 1 — Anel externo + tick marks (giro horário lento)
+    let ticks = "";
+    const R_OUT = 200;
+    const TICK_COUNT = 96;
+    for (let i = 0; i < TICK_COUNT; i++) {
+      const a = (i / TICK_COUNT) * Math.PI * 2;
+      const big = i % 8 === 0;
+      const len = big ? 14 : 6;
+      const x1 = Math.cos(a) * R_OUT;
+      const y1 = Math.sin(a) * R_OUT;
+      const x2 = Math.cos(a) * (R_OUT - len);
+      const y2 = Math.sin(a) * (R_OUT - len);
+      const op = big ? 1 : 0.45;
+      ticks += `<line class="tick" x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke-opacity="${op}"/>`;
+    }
+    html += layer("layer-spin-cw", `
+      ${defs}
+      <circle class="ring-line" cx="0" cy="0" r="${R_OUT}" stroke-opacity="0.7"/>
+      <circle class="ring-line" cx="0" cy="0" r="${R_OUT - 18}" stroke-opacity="0.25"/>
+      ${ticks}
+    `);
+
+    // Camada 2 — Anel intermediário com arcos quebrados
+    const R_MID = 160;
+    let arcs = "";
+    const arcSegs = [
+      { start: 10,  end: 70,  bright: true  },
+      { start: 95,  end: 175, bright: false },
+      { start: 200, end: 250, bright: true  },
+      { start: 280, end: 340, bright: false }
+    ];
+    arcSegs.forEach(seg => {
+      const s = (seg.start * Math.PI) / 180;
+      const e = (seg.end * Math.PI) / 180;
+      const x1 = (Math.cos(s) * R_MID).toFixed(2);
+      const y1 = (Math.sin(s) * R_MID).toFixed(2);
+      const x2 = (Math.cos(e) * R_MID).toFixed(2);
+      const y2 = (Math.sin(e) * R_MID).toFixed(2);
+      const large = (seg.end - seg.start) > 180 ? 1 : 0;
+      const cls = seg.bright ? "arc-bright" : "arc-soft";
+      arcs += `<path class="${cls}" d="M ${x1} ${y1} A ${R_MID} ${R_MID} 0 ${large} 1 ${x2} ${y2}"/>`;
+    });
+    let midNodes = "";
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2 + 0.13;
+      const x = (Math.cos(a) * R_MID).toFixed(2);
+      const y = (Math.sin(a) * R_MID).toFixed(2);
+      const cls = i % 4 === 0 ? "node-bright" : "node";
+      const r = i % 4 === 0 ? 3.5 : 2.2;
+      midNodes += `<circle class="${cls}" cx="${x}" cy="${y}" r="${r}"/>`;
+    }
+    html += layer("layer-spin-ccw", arcs + midNodes);
+
+    // Camada 3 — Linhas radiais finas
+    let radials = "";
+    const R_RAD_OUT = 145;
+    const R_RAD_IN = 95;
+    const RADIAL_COUNT = 60;
+    for (let i = 0; i < RADIAL_COUNT; i++) {
+      const a = (i / RADIAL_COUNT) * Math.PI * 2;
+      const x1 = (Math.cos(a) * R_RAD_IN).toFixed(2);
+      const y1 = (Math.sin(a) * R_RAD_IN).toFixed(2);
+      const x2 = (Math.cos(a) * R_RAD_OUT).toFixed(2);
+      const y2 = (Math.sin(a) * R_RAD_OUT).toFixed(2);
+      const op = i % 3 === 0 ? 0.6 : 0.2;
+      radials += `<line class="radial" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke-opacity="${op}"/>`;
+    }
+    html += layer("layer-spin-slow", radials);
+
+    // Camada 4 — Anel interno com circuito
+    const R_INNER = 80;
+    let circuit = "";
+    let innerNodes = "";
+    const innerPts = [];
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * Math.PI * 2;
+      innerPts.push({ x: Math.cos(a) * R_INNER, y: Math.sin(a) * R_INNER });
+    }
+    const connections = [[0,5],[1,9],[2,11],[3,7],[4,13],[6,12],[8,14],[10,15]];
+    connections.forEach(([a, b]) => {
+      circuit += `<line class="ring-line" x1="${innerPts[a].x.toFixed(2)}" y1="${innerPts[a].y.toFixed(2)}" x2="${innerPts[b].x.toFixed(2)}" y2="${innerPts[b].y.toFixed(2)}" stroke-opacity="0.25"/>`;
+    });
+    innerPts.forEach((p, i) => {
+      const cls = i % 3 === 0 ? "node-bright" : "node";
+      const r = i % 3 === 0 ? 2.8 : 1.6;
+      innerNodes += `<circle class="${cls}" cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="${r}"/>`;
+    });
+    html += layer("layer-spin-cw", `
+      <circle class="ring-line" cx="0" cy="0" r="${R_INNER}" stroke-opacity="0.45"/>
+      ${circuit}${innerNodes}
+    `);
+
+    // Camada 5 — Labels técnicos
+    const labels = ["CLARA-01", "DM·STACK", "AUTH·OK", "GEM·2.5", "11LABS", "Δ·SYNC"];
+    let labelStr = "";
+    labels.forEach((txt, i) => {
+      const a = (i / labels.length) * 360;
+      labelStr += `<g transform="rotate(${a})"><text class="label" x="0" y="-178" text-anchor="middle">${txt}</text></g>`;
+    });
+    html += layer("layer-spin-fast", labelStr);
+
+    // Camada 6 — Núcleo brilhante central (estático, não rotaciona — só pulsa)
+    html += layer("layer-static", `
+      <circle class="core-glow" cx="0" cy="0" r="55"/>
+      <circle cx="0" cy="0" r="8" fill="#ffe4ec" filter="drop-shadow(0 0 12px #ff7a99)"/>
+    `);
+
+    stage.innerHTML = html;
+  })();
+
+  // Wireframe constelação (gerado 1x, sem reflow contínuo)
+  (function buildWireframe() {
+    const svg = document.getElementById("wireframe");
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+
+    // Seed determinístico pra layout consistente
+    let seed = 42;
+    const rand = () => {
+      seed = (seed * 9301 + 49297) % 233280;
+      return seed / 233280;
+    };
+
+    const cx = W / 2, cy = H / 2;
+    const exclR = Math.min(W, H) * 0.22; // zona da esfera (sem pontos perto)
+    const pts = [];
+    const total = 55;
+    let tries = 0;
+    while (pts.length < total && tries < 800) {
+      tries++;
+      const x = rand() * W;
+      const y = rand() * H;
+      const dx = x - cx, dy = y - cy;
+      if (Math.sqrt(dx*dx + dy*dy) < exclR) continue;
+      pts.push({ x, y });
+    }
+
+    // Conectar pontos próximos
+    const maxDist = Math.min(W, H) * 0.18;
+    let svgInner = "";
+    for (let i = 0; i < pts.length; i++) {
+      for (let j = i + 1; j < pts.length; j++) {
+        const dx = pts[i].x - pts[j].x;
+        const dy = pts[i].y - pts[j].y;
+        const d = Math.sqrt(dx*dx + dy*dy);
+        if (d < maxDist) {
+          const op = (1 - d / maxDist) * 0.35;
+          svgInner += `<line x1="${pts[i].x}" y1="${pts[i].y}" x2="${pts[j].x}" y2="${pts[j].y}" stroke-opacity="${op.toFixed(2)}"/>`;
+        }
+      }
+    }
+
+    // Pontos
+    pts.forEach((p, i) => {
+      const r = 1.5 + rand() * 1.5;
+      const bright = i % 7 === 0 ? "bright" : "";
+      const delay = (rand() * 4).toFixed(2);
+      svgInner += `<circle class="${bright}" cx="${p.x}" cy="${p.y}" r="${r}" style="animation-delay:${delay}s"/>`;
+    });
+
+    svg.innerHTML = svgInner;
+  })();
+
+  // Rebuild on resize (debounced)
+  let resizeT;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeT);
+    resizeT = setTimeout(() => location.reload(), 250);
+  });
+
+  function tick() {
+    const d = new Date();
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mm = String(d.getMinutes()).padStart(2, "0");
+    document.getElementById("time").textContent = `${hh}:${mm}`;
+    const dias  = ["DOM","SEG","TER","QUA","QUI","SEX","SAB"];
+    const meses = ["JAN","FEV","MAR","ABR","MAI","JUN","JUL","AGO","SET","OUT","NOV","DEZ"];
+    document.getElementById("date").textContent =
+      `${dias[d.getDay()]} · ${d.getDate()} ${meses[d.getMonth()]} ${d.getFullYear()}`;
+  }
+  setInterval(tick, 30000); tick();
+
+  // Registrar Service Worker (PWA)
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("./service-worker.js")
+        .then(reg => console.log("[PWA] SW registrado:", reg.scope))
+        .catch(err => console.warn("[PWA] SW falhou:", err));
+    });
+  }
+</script>
+</body>
+</html>

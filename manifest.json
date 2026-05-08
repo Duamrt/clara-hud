@@ -1,0 +1,44 @@
+{
+  "name": "Clara — Assistente Pessoal",
+  "short_name": "Clara",
+  "description": "HUD da Clara, assistente pessoal do Duam. Hub de comando do ecossistema DM Stack.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#02020a",
+  "theme_color": "#ff7a99",
+  "lang": "pt-BR",
+  "categories": ["productivity", "utilities"],
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Abrir RPM Pro",
+      "url": "https://rpmpro.com.br",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Abrir DM Pay",
+      "url": "https://dmpayapp.com.br",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Abrir DM Smart",
+      "url": "https://app.dmstack.com.br",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
