@@ -12,6 +12,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Clara">
 <meta name="mobile-web-app-capable" content="yes">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <style>
   :root {
     --accent: #ff7a99;
@@ -694,6 +695,11 @@
   }
   setInterval(tick, 30000); tick();
 
+  // === Supabase config (chat realtime Clara) ===
+  const SUPABASE_URL = "https://bkfkzauhnlulrtttgcii.supabase.co";
+  const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrZmt6YXVobmx1bHJ0dHRnY2lpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5NDkwODAsImV4cCI6MjA5MDUyNTA4MH0.VPgVt22TDQ_n17CUS9KSdCnbX4GtQgiEOHio2wK9mhI";
+  const CHAT_SESSION_ID = "duam-clara-d7f3a2c1-9b4e-4f0a";
+
   // === Chat Overlay ===
   const claraStage = document.getElementById("claraStage");
   const chatPanel  = document.getElementById("chatPanel");
@@ -741,17 +747,62 @@
       chatForm.requestSubmit();
     }
   });
-  chatForm.addEventListener("submit", (e) => {
+  // === Supabase client + Realtime ===
+  const supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  const seenIds = new Set();
+
+  function renderRow(row) {
+    if (seenIds.has(row.id)) return;
+    seenIds.add(row.id);
+    if (row.role === "system") appendMsg("system", row.text);
+    else if (row.role === "user") appendMsg("user", row.text);
+    else if (row.role === "clara") appendMsg("clara", row.text);
+  }
+
+  // Carrega últimas 30 mensagens ao abrir
+  async function loadHistory() {
+    const { data, error } = await supa
+      .from("clara_messages")
+      .select("*")
+      .eq("chat_session_id", CHAT_SESSION_ID)
+      .order("created_at", { ascending: true })
+      .limit(30);
+    if (error) { console.warn("[Clara] erro carregar historico:", error); return; }
+    // Limpa placeholders iniciais e renderiza histórico
+    chatMsgs.innerHTML = '<div class="msg system">Início da conversa</div>';
+    (data || []).forEach(renderRow);
+    if (!data || data.length === 0) appendMsg("clara", "Tô aqui, Chefe. Manda.");
+  }
+  loadHistory();
+
+  // Subscribe a INSERTs novos
+  supa.channel("clara-msgs")
+    .on("postgres_changes",
+        { event: "INSERT", schema: "public", table: "clara_messages",
+          filter: `chat_session_id=eq.${CHAT_SESSION_ID}` },
+        (payload) => renderRow(payload.new))
+    .subscribe();
+
+  chatForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const txt = chatInput.value.trim();
     if (!txt) return;
-    appendMsg("user", txt);
     chatInput.value = "";
     chatInput.style.height = "auto";
-    // Backend ainda nao plugado - placeholder
-    setTimeout(() => {
-      appendMsg("system", "Backend não conectado ainda — envie pelo Telegram @Claraxd_bot");
-    }, 220);
+    chatInput.disabled = true;
+    const { error } = await supa.from("clara_messages").insert({
+      chat_session_id: CHAT_SESSION_ID,
+      role: "user",
+      source: "hud",
+      text: txt,
+    });
+    chatInput.disabled = false;
+    chatInput.focus();
+    if (error) {
+      console.warn("[Clara] erro enviar:", error);
+      appendMsg("system", "Erro ao enviar — verifica conexão.");
+    }
+    // Não chamamos appendMsg("user", ...) aqui — vem via subscribe
   });
 
   // Registrar Service Worker (PWA)
