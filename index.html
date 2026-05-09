@@ -1173,20 +1173,15 @@
     window.addEventListener("load", async () => {
       try {
         // Detecta versões velhas (v1.0-v1.3) e remove tudo
-        const KILL_VERSION_KEY = "clara-sw-kill-v2";
+        const KILL_VERSION_KEY = "clara-sw-kill-v3";
         const alreadyKilled = localStorage.getItem(KILL_VERSION_KEY);
         if (!alreadyKilled) {
           const regs = await navigator.serviceWorker.getRegistrations();
           for (const r of regs) await r.unregister();
           const cacheKeys = await caches.keys();
-          for (const k of cacheKeys) {
-            // Mata caches de versões anteriores
-            if (k.includes("v1.0") || k.includes("v1.1") || k.includes("v1.2") || k.includes("v1.3")) {
-              await caches.delete(k);
-            }
-          }
+          for (const k of cacheKeys) await caches.delete(k);  // limpa TODOS os caches
           localStorage.setItem(KILL_VERSION_KEY, "1");
-          console.log("[PWA] SW velho removido");
+          console.log("[PWA] SW velho removido (v3)");
         }
 
         const reg = await navigator.serviceWorker.register("./service-worker.js");
