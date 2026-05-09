@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Clara — Painel</title>
 <meta name="description" content="HUD da Clara — assistente pessoal do Duam.">
 <link rel="manifest" href="manifest.json">
@@ -12,408 +12,711 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Clara">
 <meta name="mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <style>
   :root {
     --accent: #ff7a99;
     --accent-2: #ff5577;
     --accent-soft: #ffcfd9;
-    --accent-deep: #b8264a;
+    --accent-dim: #6b2a3c;
     --bg-deep: #02020a;
     --bg-mid: #0a0510;
     --text: #ffd5d5;
     --text-dim: rgba(255, 213, 213, 0.45);
-    --border-soft: rgba(255, 122, 153, 0.22);
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body {
-    width: 100vw; height: 100vh;
-    overflow: hidden;
-    font-family: "JetBrains Mono", "Fira Code", -apple-system, "Segoe UI", monospace;
-    color: var(--text);
-    background:
-      radial-gradient(ellipse at 30% 20%, rgba(70, 18, 32, 0.35) 0%, transparent 50%),
-      radial-gradient(ellipse at 70% 80%, rgba(85, 22, 42, 0.3) 0%, transparent 55%),
-      radial-gradient(circle at center, var(--bg-mid) 0%, var(--bg-deep) 75%, #000 100%);
-    user-select: none;
+    --text-faint: rgba(255, 213, 213, 0.22);
+    --hairline: rgba(255, 122, 153, 0.18);
+    --hairline-strong: rgba(255, 122, 153, 0.35);
   }
 
-  /* Wireframe constelação de fundo (estilo Jarvis) */
-  .wireframe {
-    position: fixed; inset: 0;
-    width: 100vw; height: 100vh;
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 100%;
+    min-height: 100vh;
+    background: var(--bg-deep);
+    color: var(--text);
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+    font-weight: 400;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background:
+      radial-gradient(ellipse 80% 60% at 50% 50%, rgba(40, 8, 22, 0.55) 0%, transparent 70%),
+      radial-gradient(ellipse 100% 100% at 50% 100%, rgba(20, 4, 14, 0.6) 0%, transparent 60%),
+      var(--bg-deep);
+    position: relative;
+  }
+
+  /* ===== HUD CORNERS ===== */
+  .hud-corner {
+    position: fixed;
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--accent);
+    opacity: 0.7;
+    z-index: 50;
+    pointer-events: none;
+    box-shadow: 0 0 12px rgba(255, 122, 153, 0.25);
+  }
+  .hud-corner.tl { top: 18px; left: 18px; border-right: none; border-bottom: none; }
+  .hud-corner.tr { top: 18px; right: 18px; border-left: none; border-bottom: none; }
+  .hud-corner.bl { bottom: 18px; left: 18px; border-right: none; border-top: none; }
+  .hud-corner.br { bottom: 18px; right: 18px; border-left: none; border-top: none; }
+
+  @media (min-width: 768px) {
+    .hud-corner { width: 36px; height: 36px; }
+    .hud-corner.tl, .hud-corner.tr { top: 28px; }
+    .hud-corner.bl, .hud-corner.br { bottom: 28px; }
+    .hud-corner.tl, .hud-corner.bl { left: 28px; }
+    .hud-corner.tr, .hud-corner.br { right: 28px; }
+  }
+
+  /* ===== CONSTELLATION BG ===== */
+  #constellation {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
     z-index: 1;
     pointer-events: none;
-    opacity: 0.55;
-  }
-  .wireframe line {
-    stroke: var(--accent);
-    stroke-width: 0.5;
-    opacity: 0.18;
-  }
-  .wireframe circle {
-    fill: var(--accent);
-    animation: pt-pulse 4s ease-in-out infinite;
-  }
-  .wireframe circle.bright {
-    fill: #ffe4ec;
-    filter: drop-shadow(0 0 4px var(--accent));
-  }
-  @keyframes pt-pulse {
-    0%, 100% { opacity: 0.4; }
-    50%      { opacity: 1;   }
   }
 
-  /* Cantos HUD */
-  .corner {
-    position: fixed; width: 40px; height: 40px;
-    border: 1px solid var(--accent);
-    opacity: 0.4; z-index: 5; pointer-events: none;
-  }
-  .corner.tl { top: 16px; left: 16px; border-right: none; border-bottom: none; }
-  .corner.tr { top: 16px; right: 16px; border-left: none; border-bottom: none; }
-  .corner.bl { bottom: 16px; left: 16px; border-right: none; border-top: none; }
-  .corner.br { bottom: 16px; right: 16px; border-left: none; border-top: none; }
-
-  /* Layout grid 5 fileiras */
-  .app {
-    position: fixed; inset: 0;
+  /* ===== STAGE ===== */
+  .stage {
+    position: relative;
+    z-index: 10;
+    min-height: 100vh;
+    min-height: 100dvh;
     display: grid;
-    grid-template-rows: auto auto 1fr auto auto;
-    padding: 36px 56px;
-    row-gap: 24px;
-    z-index: 2;
+    grid-template-rows: auto 1fr auto;
+    padding: 32px 22px 22px;
+    gap: 0;
+  }
+  @media (min-width: 768px) {
+    .stage { padding: 40px 56px 28px; }
   }
 
-  /* HEADER */
-  header { display: flex; justify-content: space-between; align-items: flex-start; }
-  .weather .loc, .weather .cond {
-    font-size: 0.6rem; letter-spacing: 0.45em; opacity: 0.55;
+  /* ===== HEADER ===== */
+  .header {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: start;
+    gap: 16px;
+  }
+
+  .weather {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .weather__loc {
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    color: var(--text-dim);
+    font-weight: 500;
     text-transform: uppercase;
   }
-  .weather .temp {
-    font-size: 2.8rem; font-weight: 200; line-height: 1.05;
-    color: #fff; text-shadow: 0 0 16px rgba(255, 200, 210, 0.32);
-    margin: 2px 0;
+  .weather__row {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
   }
-  .clock { text-align: right; }
-  .clock .time {
-    font-size: 4rem; font-weight: 100; line-height: 1;
-    color: var(--accent);
-    text-shadow: 0 0 16px rgba(255, 122, 153, 0.55);
-    letter-spacing: 0.04em;
+  .weather__temp {
+    font-size: 22px;
+    font-weight: 300;
+    color: var(--text);
+    letter-spacing: 0.02em;
+    line-height: 1;
   }
-  .clock .date {
-    font-size: 0.6rem; letter-spacing: 0.4em; opacity: 0.55;
-    margin-top: 5px; text-transform: uppercase;
+  .weather__cond {
+    font-size: 9px;
+    letter-spacing: 0.28em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+  .weather__meta {
+    display: flex;
+    gap: 12px;
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+  .weather__meta span::before {
+    content: '';
+    display: inline-block;
+    width: 4px;
+    height: 4px;
+    background: var(--accent);
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: middle;
+    transform: translateY(-1px);
+    opacity: 0.6;
   }
 
-  /* TÍTULO */
-  .title {
-    text-align: center;
-    font-size: 0.65rem;
+  @media (min-width: 768px) {
+    .weather__temp { font-size: 28px; }
+    .weather__loc { font-size: 11px; }
+    .weather__cond, .weather__meta { font-size: 10px; }
+  }
+
+  .clock {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+  }
+  .clock__time {
+    font-size: 44px;
+    font-weight: 300;
+    color: var(--accent);
+    letter-spacing: 0.04em;
+    line-height: 1;
+    text-shadow:
+      0 0 18px rgba(255, 122, 153, 0.45),
+      0 0 38px rgba(255, 122, 153, 0.2);
+    font-variant-numeric: tabular-nums;
+    display: flex;
+    align-items: baseline;
+    gap: 1px;
+  }
+  .clock__sep {
+    animation: blink 1.6s infinite ease-in-out;
+    opacity: 0.85;
+  }
+  @keyframes blink {
+    0%, 50% { opacity: 0.85; }
+    51%, 100% { opacity: 0.3; }
+  }
+  .clock__sec {
+    font-size: 14px;
+    color: var(--accent-soft);
+    opacity: 0.55;
+    margin-left: 6px;
+    letter-spacing: 0.04em;
+    align-self: baseline;
+    font-variant-numeric: tabular-nums;
+  }
+  .clock__date {
+    font-size: 10px;
+    letter-spacing: 0.28em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    font-weight: 500;
+    border-top: 1px solid var(--hairline);
+    padding-top: 6px;
+    margin-top: 4px;
+    width: 100%;
+    text-align: right;
+  }
+
+  @media (min-width: 768px) {
+    .clock__time { font-size: 58px; }
+    .clock__sec { font-size: 16px; }
+    .clock__date { font-size: 11px; padding-top: 8px; }
+  }
+
+  @media (min-width: 1280px) {
+    .clock__time { font-size: 68px; }
+    .clock__sec { font-size: 18px; }
+  }
+
+  @media (min-width: 1280px) and (min-height: 820px) {
+    .clock__time { font-size: 76px; }
+    .clock__sec { font-size: 20px; }
+  }
+
+  /* ===== TITLE BAND ===== */
+  .title-band {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: 22px auto 0;
+    padding: 0 4px;
+    max-width: 720px;
+    width: 100%;
+  }
+  .title-band__line {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(to right, transparent, var(--hairline-strong));
+  }
+  .title-band__line.right {
+    background: linear-gradient(to left, transparent, var(--hairline-strong));
+  }
+  .title-band__label {
+    font-size: 10px;
+    letter-spacing: 0.5em;
+    color: var(--text);
+    text-transform: uppercase;
+    font-weight: 500;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+  }
+  .title-band__label .title-word {
+    font-size: 28px;
+    font-weight: 300;
     letter-spacing: 0.7em;
-    opacity: 0.4;
+    padding-left: 0.7em; /* optical centering against trailing letter-spacing */
+    color: var(--text);
+    text-shadow:
+      0 0 12px rgba(255, 122, 153, 0.55),
+      0 0 28px rgba(255, 122, 153, 0.3),
+      0 0 60px rgba(255, 122, 153, 0.18);
+  }
+  @media (min-width: 768px) {
+    .title-band__label .title-word {
+      font-size: 38px;
+      letter-spacing: 0.85em;
+      padding-left: 0.85em;
+    }
+  }
+  @media (min-width: 1280px) {
+    .title-band__label .title-word {
+      font-size: 46px;
+      letter-spacing: 1em;
+      padding-left: 1em;
+    }
+  }
+  .title-band__label .dot {
+    width: 5px;
+    height: 5px;
+    background: var(--accent);
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--accent);
+    flex-shrink: 0;
+  }
+  .title-band__label .sep {
+    color: var(--accent);
+    opacity: 0.7;
+    font-weight: 300;
+  }
+  .title-band__label .sub {
+    color: var(--text-dim);
+    font-weight: 400;
+  }
+
+  @media (min-width: 768px) {
+    .title-band { margin-top: 28px; gap: 24px; }
+    .title-band__label { font-size: 11px; letter-spacing: 0.6em; gap: 22px; }
+  }
+
+  /* ===== CORE AREA ===== */
+  .core-area {
+    position: relative;
+    display: grid;
+    place-items: center;
+    min-height: 320px;
+    padding: 18px 0;
+  }
+  @media (min-width: 768px) {
+    .core-area { padding: 12px 0; min-height: 0; }
+  }
+
+  .core-svg-wrap {
+    position: relative;
+    width: min(78vw, 440px);
+    aspect-ratio: 1;
+  }
+  @media (min-width: 768px) {
+    .core-svg-wrap { width: min(40vw, 420px); }
+  }
+  @media (min-width: 768px) and (min-height: 820px) {
+    .core-svg-wrap { width: min(44vw, 480px); }
+  }
+
+  .core-svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  /* Orbit rotation animations */
+  .ring-tick { animation: spin-slow 60s linear infinite; transform-origin: 250px 250px; }
+  .ring-arc-outer { animation: spin-rev 28s linear infinite; transform-origin: 250px 250px; }
+  .ring-arc-inner { animation: spin-fwd 18s linear infinite; transform-origin: 250px 250px; }
+  .inner-poly { animation: spin-rev 42s linear infinite; transform-origin: 250px 250px; }
+  .vertex-dots { animation: spin-fwd 42s linear infinite; transform-origin: 250px 250px; }
+
+  @keyframes spin-slow { to { transform: rotate(360deg); } }
+  @keyframes spin-fwd { to { transform: rotate(360deg); } }
+  @keyframes spin-rev { to { transform: rotate(-360deg); } }
+
+  .core-glow {
+    animation: pulse-glow 2.6s ease-in-out infinite;
+    transform-origin: 250px 250px;
+  }
+  @keyframes pulse-glow {
+    0%, 100% { opacity: 0.9; transform: scale(1); }
+    50%      { opacity: 1; transform: scale(1.08); }
+  }
+
+  .core-halo {
+    animation: pulse-halo 3.4s ease-in-out infinite;
+    transform-origin: 250px 250px;
+  }
+  @keyframes pulse-halo {
+    0%, 100% { opacity: 0.35; transform: scale(0.95); }
+    50%      { opacity: 0.65; transform: scale(1.15); }
+  }
+
+  /* Side readouts flanking the core (desktop only) */
+  .core-readouts {
+    display: none;
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+  @media (min-width: 1100px) {
+    .core-readouts { display: block; }
+  }
+  .readout {
+    position: absolute;
+    font-size: 9px;
+    letter-spacing: 0.25em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    line-height: 1.4;
+  }
+  .readout .k { color: var(--accent); opacity: 0.7; }
+  .readout .v { color: var(--text); font-weight: 500; }
+  .readout.tl { top: 6%;  left: -2%;  text-align: left; }
+  .readout.tr { top: 6%;  right: -2%; text-align: right; align-items: flex-end; }
+  .readout.bl { bottom: 6%; left: -2%; text-align: left; }
+  .readout.br { bottom: 6%; right: -2%; text-align: right; align-items: flex-end; }
+
+  /* ===== STATUS PILL ===== */
+  .status-wrap {
+    display: grid;
+    place-items: center;
+    margin-top: 4px;
+    margin-bottom: 18px;
+  }
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 18px 10px 14px;
+    border: 1px solid var(--hairline-strong);
+    border-radius: 999px;
+    background:
+      linear-gradient(180deg, rgba(255,122,153,0.05) 0%, rgba(255,122,153,0.02) 100%),
+      rgba(10, 5, 16, 0.6);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    font-size: 10px;
+    letter-spacing: 0.32em;
     text-transform: uppercase;
     color: var(--text);
+    font-weight: 500;
+    box-shadow:
+      0 0 0 1px rgba(255,122,153,0.04) inset,
+      0 8px 30px rgba(255, 122, 153, 0.08);
+    cursor: default;
+    transition: all 0.3s ease;
+  }
+  .status-pill:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px rgba(255,122,153,0.06) inset, 0 8px 36px rgba(255,122,153,0.18);
   }
 
-  /* NÚCLEO JARVIS — SVG denso */
-  .stage-wrap { display: flex; align-items: center; justify-content: center; }
-  .clara-stage {
+  .status-pill__dot {
     position: relative;
-    width: min(45vh, 440px);
-    height: min(45vh, 440px);
+    width: 8px;
+    height: 8px;
+    flex-shrink: 0;
+  }
+  .status-pill__dot::before,
+  .status-pill__dot::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+  .status-pill__dot::before {
+    box-shadow: 0 0 10px var(--accent), 0 0 20px var(--accent);
+    animation: dot-pulse 1.6s ease-in-out infinite;
+  }
+  .status-pill__dot::after {
+    animation: dot-ring 2s ease-out infinite;
+    opacity: 0;
+  }
+  @keyframes dot-pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50%      { transform: scale(0.7); opacity: 0.7; }
+  }
+  @keyframes dot-ring {
+    0%   { transform: scale(1); opacity: 0.6; }
+    100% { transform: scale(3.2); opacity: 0; }
+  }
+
+  .status-pill__sep {
+    width: 1px;
+    height: 12px;
+    background: var(--hairline-strong);
+  }
+  .status-pill__cmd {
+    color: var(--accent-soft);
+    opacity: 0.85;
+  }
+  .status-pill__cmd .q { color: var(--accent); margin: 0 2px; }
+
+  @media (min-width: 768px) {
+    .status-pill { font-size: 11px; padding: 12px 22px 12px 18px; gap: 14px; }
+    .status-pill__dot { width: 9px; height: 9px; }
+    .status-wrap { margin-top: 8px; margin-bottom: 22px; }
+  }
+
+  /* ===== SHORTCUTS ===== */
+  .shortcuts {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    max-width: 520px;
+    margin: 0 auto;
+    width: 100%;
+  }
+  @media (min-width: 720px) {
+    .shortcuts {
+      grid-template-columns: repeat(6, 1fr);
+      max-width: 980px;
+      gap: 14px;
+    }
+  }
+
+  .sc {
+    position: relative;
+    background:
+      linear-gradient(180deg, rgba(255,122,153,0.045) 0%, rgba(255,122,153,0.012) 100%),
+      rgba(8, 4, 14, 0.5);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    padding: 12px 12px 10px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    overflow: hidden;
+    text-align: left;
+    color: inherit;
+    font-family: inherit;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 86px;
+  }
+  .sc::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 14px;
+    height: 1px;
+    background: var(--accent);
+    opacity: 0.6;
+    transition: width 0.3s ease;
+  }
+  .sc::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 1px;
+    height: 14px;
+    background: var(--accent);
+    opacity: 0.6;
+    transition: height 0.3s ease;
+  }
+  .sc:hover {
+    border-color: var(--hairline-strong);
+    background:
+      linear-gradient(180deg, rgba(255,122,153,0.085) 0%, rgba(255,122,153,0.025) 100%),
+      rgba(14, 6, 20, 0.7);
+    transform: translateY(-1px);
+    box-shadow: 0 8px 22px rgba(0,0,0,0.4), 0 0 22px rgba(255,122,153,0.08);
+  }
+  .sc:hover::before { width: 28px; }
+  .sc:hover::after  { height: 28px; }
+
+  .sc:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(255,122,153,0.25);
+  }
+
+  .sc.is-active {
+    border-color: var(--accent);
+    background:
+      linear-gradient(180deg, rgba(255,122,153,0.14) 0%, rgba(255,122,153,0.04) 100%),
+      rgba(20, 8, 26, 0.8);
+  }
+
+  .sc__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .sc__icon {
+    width: 18px;
+    height: 18px;
+    color: var(--accent);
+    opacity: 0.85;
+    flex-shrink: 0;
+  }
+  .sc__id {
+    font-size: 8px;
+    letter-spacing: 0.2em;
+    color: var(--text-faint);
+    font-weight: 500;
+  }
+  .sc__code {
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    color: var(--text);
+    line-height: 1;
+  }
+  .sc__label {
+    font-size: 8.5px;
+    letter-spacing: 0.22em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    font-weight: 500;
+    line-height: 1.4;
+    margin-top: auto;
+  }
+  .sc__bar {
+    height: 2px;
+    width: 100%;
+    background: rgba(255,122,153,0.08);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 4px;
+  }
+  .sc__bar > i {
+    display: block;
+    height: 100%;
+    background: var(--accent);
+    width: 30%;
+    box-shadow: 0 0 6px var(--accent);
+    transition: width 0.5s ease;
+  }
+
+  @media (min-width: 720px) {
+    .sc { padding: 14px 14px 12px; min-height: 96px; }
+    .sc__code { font-size: 18px; }
+    .sc__label { font-size: 9px; }
+  }
+
+  /* ===== SYSTEM BAR (top-center thin row) ===== */
+  .sysbar {
+    display: flex;
+    justify-content: center;
+    gap: 18px;
+    margin-top: 10px;
+    font-size: 8px;
+    letter-spacing: 0.3em;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+  .sysbar span {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .sysbar i {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 6px var(--accent);
+    opacity: 0.85;
+    display: inline-block;
+  }
+  .sysbar i.amber { background: #ffb070; box-shadow: 0 0 6px #ffb070; }
+  @media (min-width: 768px) {
+    .sysbar { font-size: 9px; gap: 26px; }
+  }
+
+  /* ===== Footer caption ===== */
+  .footer-cap {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 12px;
+    padding: 0 4px;
+    font-size: 8.5px;
+    letter-spacing: 0.3em;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+  .footer-cap .v { color: var(--accent); opacity: 0.75; }
+  @media (min-width: 768px) {
+    .footer-cap { font-size: 9.5px; margin-top: 14px; }
+  }
+
+  /* Scanline overlay (very subtle) */
+  .scan {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 5;
+    background: repeating-linear-gradient(
+      to bottom,
+      transparent 0px,
+      transparent 3px,
+      rgba(255, 122, 153, 0.012) 3px,
+      rgba(255, 122, 153, 0.012) 4px
+    );
+    mix-blend-mode: screen;
+  }
+
+  /* ===== CORE CLICÁVEL (abre chat overlay) ===== */
+  .core-svg-wrap {
     cursor: pointer;
     transition: transform 0.25s ease, filter 0.25s ease;
   }
-  .clara-stage:hover { transform: scale(1.025); filter: brightness(1.1); }
-  .clara-stage:active { transform: scale(0.99); }
+  .core-svg-wrap:hover { transform: scale(1.02); filter: brightness(1.1); }
+  .core-svg-wrap:active { transform: scale(0.99); }
 
-  /* Halo glow externo */
-  .halo-outer {
-    position: absolute; inset: -20%;
-    background: radial-gradient(circle at center,
-                rgba(255, 130, 150, 0.22) 0%,
-                rgba(220, 80, 130, 0.10) 35%,
-                transparent 70%);
-    border-radius: 50%;
-    animation: pulse-halo 5s ease-in-out infinite;
-    pointer-events: none;
-    will-change: transform, opacity;
-    z-index: 0;
-  }
-  @keyframes pulse-halo {
-    0%,100% { transform: scale(1);    opacity: 0.6; }
-    50%     { transform: scale(1.05); opacity: 1;   }
-  }
-
-  /* Stage do núcleo - cada camada é um SVG sobreposto */
-  .core-stage {
-    position: absolute; inset: 0;
-    width: 100%; height: 100%;
-    z-index: 1;
-  }
-  .core-stage svg {
-    position: absolute; inset: 0;
-    width: 100%; height: 100%;
-    overflow: visible;
-    transform-origin: center center;
-    will-change: transform;
-  }
-  .core-stage .layer-spin-cw    { animation: spin 38s linear infinite; }
-  .core-stage .layer-spin-ccw   { animation: spin 26s linear infinite reverse; }
-  .core-stage .layer-spin-slow  { animation: spin 90s linear infinite; }
-  .core-stage .layer-spin-fast  { animation: spin 14s linear infinite; }
-  @keyframes spin {
-    from { transform: rotate(0deg); }
-    to   { transform: rotate(360deg); }
-  }
-
-  .core-stage .ring-line {
-    fill: none;
-    stroke: var(--accent);
-    stroke-width: 1;
-  }
-  .core-stage .tick {
-    stroke: var(--accent);
-    stroke-width: 1;
-  }
-  .core-stage .radial {
-    stroke: var(--accent);
-    stroke-width: 0.4;
-    opacity: 0.35;
-  }
-  .core-stage .arc-bright {
-    fill: none;
-    stroke: var(--accent);
-    stroke-width: 2.2;
-    filter: drop-shadow(0 0 6px var(--accent));
-  }
-  .core-stage .arc-soft {
-    fill: none;
-    stroke: var(--accent);
-    stroke-width: 0.8;
-    opacity: 0.45;
-  }
-  .core-stage .node {
-    fill: var(--accent);
-    filter: drop-shadow(0 0 4px var(--accent));
-  }
-  .core-stage .node-bright {
-    fill: #ffe4ec;
-    filter: drop-shadow(0 0 6px var(--accent));
-  }
-  .core-stage .label {
-    fill: var(--accent);
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
-    letter-spacing: 0.2em;
-    opacity: 0.7;
-  }
-  .core-stage .core-glow {
-    fill: url(#coreGrad);
-    animation: pulse-core 3.5s ease-in-out infinite;
-    transform-origin: center;
-    will-change: transform, opacity;
-  }
-  @keyframes pulse-core {
-    0%,100% { transform: scale(1);    opacity: 0.85; }
-    50%     { transform: scale(1.08); opacity: 1;    }
-  }
-  .core-stage .scan-layer {
-    animation: scan-spin 6s linear infinite;
-  }
-  .core-stage .scan {
-    stroke: var(--accent);
-    stroke-width: 1.5;
-    opacity: 0.6;
-    filter: drop-shadow(0 0 5px var(--accent));
-  }
-  .core-stage .layer-static { animation: none; }
-  @keyframes scan-spin {
-    from { transform: rotate(0deg); }
-    to   { transform: rotate(360deg); }
-  }
-
-  /* STATUS */
-  .status {
-    text-align: center;
-    font-size: 0.65rem;
-    letter-spacing: 0.5em;
-    color: var(--accent-soft);
-    text-transform: uppercase;
-    opacity: 0.85;
-  }
-  .status .dot {
-    display: inline-block;
-    width: 6px; height: 6px;
-    background: var(--accent);
-    border-radius: 50%;
-    box-shadow: 0 0 6px var(--accent);
-    animation: blink 1.6s ease-in-out infinite;
-    vertical-align: middle;
-    margin-right: 12px;
-    margin-bottom: 2px;
-  }
-  @keyframes blink {
-    0%,100% { opacity: 1;   }
-    50%     { opacity: 0.3; }
-  }
-
-  /* FOOTER */
-  footer {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 14px;
-  }
-  .saas { display: flex; gap: 14px; }
-  .saas .item {
-    display: flex; flex-direction: column; align-items: center; gap: 6px;
-  }
-  .saas a {
-    width: 50px; height: 50px;
-    border: 1px solid var(--border-soft);
-    border-radius: 8px;
-    display: flex; align-items: center; justify-content: center;
-    color: var(--accent);
-    font-size: 0.65rem; font-weight: 600;
-    text-decoration: none;
-    background: rgba(255, 122, 153, 0.04);
-    transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
-    text-shadow: 0 0 8px rgba(255, 122, 153, 0.4);
-  }
-  .saas a:hover {
-    background: rgba(255, 122, 153, 0.15);
-    border-color: var(--accent);
-    transform: translateY(-2px);
-  }
-  .saas .item small {
-    font-size: 0.5rem; opacity: 0.4; letter-spacing: 0.18em;
-    color: var(--text-dim); text-transform: uppercase;
-  }
-  .system-line {
-    display: flex; justify-content: space-between; width: 100%;
-    font-size: 0.5rem; letter-spacing: 0.4em; opacity: 0.4;
-    text-transform: uppercase;
-  }
-  .system-line .right { color: var(--accent-soft); }
-
-  /* === MOBILE (portrait) === */
-  @media (max-width: 700px) {
-    .app {
-      padding: 20px 14px 16px;
-      row-gap: 14px;
-      grid-template-rows: auto auto 1fr auto auto;
-    }
-    .corner { width: 26px; height: 26px; }
-    .corner.tl, .corner.tr { top: 8px; }
-    .corner.tl, .corner.bl { left: 8px; }
-    .corner.tr, .corner.br { right: 8px; }
-    .corner.bl, .corner.br { bottom: 8px; }
-
-    /* HEADER mobile */
-    header { gap: 12px; }
-    .weather .loc, .weather .cond {
-      font-size: 0.5rem; letter-spacing: 0.3em;
-    }
-    .weather .temp {
-      font-size: 1.8rem;
-    }
-    .clock .time {
-      font-size: 2.4rem;
-    }
-    .clock .date {
-      font-size: 0.5rem; letter-spacing: 0.25em;
-    }
-
-    /* TÍTULO mobile */
-    .title {
-      font-size: 0.55rem;
-      letter-spacing: 0.4em;
-    }
-
-    /* ESFERA mobile - tamanho compacto */
-    .clara-stage {
-      width: min(70vw, 320px);
-      height: min(70vw, 320px);
-    }
-
-    /* STATUS mobile */
-    .status {
-      font-size: 0.55rem;
-      letter-spacing: 0.3em;
-    }
-
-    /* FOOTER mobile - atalhos compactos */
-    footer { gap: 10px; }
-    .saas { gap: 8px; flex-wrap: wrap; justify-content: center; }
-    .saas a {
-      width: 42px; height: 42px;
-      font-size: 0.55rem;
-    }
-    .saas .item small {
-      font-size: 0.42rem; letter-spacing: 0.1em;
-    }
-    .system-line {
-      flex-direction: column;
-      align-items: center;
-      gap: 4px;
-      font-size: 0.42rem;
-      letter-spacing: 0.25em;
-      text-align: center;
-    }
-
-    /* CHAT mobile - tela cheia */
-    .chat-panel {
-      width: 100vw;
-    }
-    .chat-header { padding: 16px 18px 12px; }
-    .chat-input-wrap { padding: 12px 14px 18px; }
-  }
-
-  /* === MOBILE pequeno (iPhone SE etc) === */
-  @media (max-width: 380px) {
-    .app { padding: 16px 10px 12px; row-gap: 10px; }
-    .clock .time { font-size: 2rem; }
-    .weather .temp { font-size: 1.5rem; }
-    .clara-stage { width: min(75vw, 280px); height: min(75vw, 280px); }
-    .saas a { width: 38px; height: 38px; font-size: 0.5rem; }
-  }
-
-  /* === LANDSCAPE mobile (telefone deitado) === */
-  @media (max-height: 500px) and (orientation: landscape) {
-    .app { padding: 12px 24px; row-gap: 8px; }
-    .clara-stage {
-      width: min(60vh, 200px);
-      height: min(60vh, 200px);
-    }
-    .clock .time { font-size: 1.8rem; }
-    .weather .temp { font-size: 1.4rem; }
-  }
-
-  /* CHAT OVERLAY (clica na esfera → abre) */
+  /* ===== CHAT OVERLAY ===== */
   .chat-panel {
     position: fixed;
     top: 0; right: 0;
     width: min(420px, 100vw);
-    height: 100vh;
+    height: 100vh; height: 100dvh;
     background: rgba(12, 4, 12, 0.92);
     backdrop-filter: blur(18px) saturate(140%);
     -webkit-backdrop-filter: blur(18px) saturate(140%);
-    border-left: 1px solid var(--border-soft);
+    border-left: 1px solid var(--hairline-strong);
     box-shadow: -10px 0 60px rgba(0,0,0,0.6), -20px 0 80px rgba(255,122,153,0.06);
     transform: translateX(100%);
     transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
-    z-index: 50;
+    z-index: 100;
     display: flex; flex-direction: column;
   }
   .chat-panel.open { transform: translateX(0); }
+  @media (max-width: 700px) { .chat-panel { width: 100vw; } }
 
   .chat-header {
     padding: 22px 24px 16px;
-    border-bottom: 1px solid var(--border-soft);
+    border-bottom: 1px solid var(--hairline);
     display: flex; align-items: center; justify-content: space-between;
   }
   .chat-header .title-block .name {
@@ -426,7 +729,7 @@
   }
   .chat-close {
     width: 32px; height: 32px;
-    background: transparent; border: 1px solid var(--border-soft);
+    background: transparent; border: 1px solid var(--hairline);
     border-radius: 6px; color: var(--accent);
     font-size: 18px; line-height: 1; cursor: pointer;
     display: flex; align-items: center; justify-content: center;
@@ -459,7 +762,7 @@
   .msg.clara {
     align-self: flex-start;
     background: rgba(255,213,213,0.04);
-    border: 1px solid var(--border-soft);
+    border: 1px solid var(--hairline);
     color: var(--accent-soft);
     border-bottom-left-radius: 4px;
   }
@@ -469,16 +772,56 @@
     font-size: 0.7rem; opacity: 0.4; letter-spacing: 0.15em;
     text-transform: uppercase;
   }
+  .msg-audio-row {
+    display: flex; align-items: center; gap: 8px;
+    margin-top: 6px;
+    font-size: 0.7rem; opacity: 0.85;
+  }
+  .msg-audio-row button {
+    background: rgba(255,122,153,0.15);
+    border: 1px solid var(--hairline);
+    color: var(--accent);
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    font-size: 11px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .msg-audio-row button:hover { background: rgba(255,122,153,0.3); }
+
+  /* Mic Visualizer (equalizer ao gravar) */
+  .mic-visualizer {
+    display: flex; align-items: center; justify-content: center;
+    gap: 3px;
+    height: 0; overflow: hidden;
+    padding: 0 18px;
+    border-top: 1px solid transparent;
+    transition: height 0.28s cubic-bezier(0.4,0,0.2,1),
+                padding 0.28s ease, border-color 0.28s ease;
+  }
+  .mic-visualizer.active {
+    height: 38px; padding: 6px 18px;
+    border-top: 1px solid var(--hairline);
+  }
+  .mic-bar {
+    width: 3px; min-height: 3px;
+    background: var(--accent);
+    border-radius: 2px;
+    box-shadow: 0 0 4px rgba(255,122,153,0.6);
+    transform: scaleY(0.15);
+    transform-origin: center;
+    transition: transform 0.06s ease;
+  }
 
   .chat-input-wrap {
     padding: 14px 18px 22px;
-    border-top: 1px solid var(--border-soft);
+    border-top: 1px solid var(--hairline);
     display: flex; gap: 10px; align-items: center;
   }
   .chat-input {
     flex: 1;
     background: rgba(255,122,153,0.04);
-    border: 1px solid var(--border-soft);
+    border: 1px solid var(--hairline);
     border-radius: 10px;
     padding: 12px 14px;
     color: var(--text);
@@ -486,8 +829,7 @@
     font-size: 0.85rem;
     outline: none;
     resize: none;
-    min-height: 42px;
-    max-height: 120px;
+    min-height: 42px; max-height: 120px;
     transition: border-color 0.15s ease, background 0.15s ease;
   }
   .chat-input:focus {
@@ -495,6 +837,7 @@
     background: rgba(255,122,153,0.08);
   }
   .chat-input::placeholder { color: var(--text-faint); }
+
   .chat-send, .chat-mic {
     width: 42px; height: 42px;
     border: none; border-radius: 10px;
@@ -512,10 +855,9 @@
   .chat-send:hover { transform: scale(1.06); box-shadow: 0 0 26px rgba(255,122,153,0.7); }
   .chat-send:active { transform: scale(0.96); }
   .chat-send:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
-
   .chat-mic {
     background: rgba(255,122,153,0.08);
-    border: 1px solid var(--border-soft);
+    border: 1px solid var(--hairline);
     color: var(--accent);
     font-size: 18px;
   }
@@ -532,337 +874,512 @@
     50%     { box-shadow: 0 0 24px rgba(255,48,96,0.9); }
   }
   .chat-mic.processing { opacity: 0.5; pointer-events: none; }
-
-  /* Bubble com audio (resposta da Clara) */
-  .msg-audio-row {
-    display: flex; align-items: center; gap: 8px;
-    margin-top: 6px;
-    font-size: 0.7rem; opacity: 0.85;
-  }
-  .msg-audio-row button {
-    background: rgba(255,122,153,0.15);
-    border: 1px solid var(--border-soft);
-    color: var(--accent);
-    width: 26px; height: 26px;
-    border-radius: 50%;
-    font-size: 11px;
-    cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-  }
-  .msg-audio-row button:hover { background: rgba(255,122,153,0.3); }
-
-  /* Mic Visualizer (equalizer ao gravar) */
-  .mic-visualizer {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 3px;
-    height: 0;
-    overflow: hidden;
-    padding: 0 18px;
-    border-top: 1px solid transparent;
-    transition: height 0.28s cubic-bezier(0.4,0,0.2,1),
-                padding 0.28s ease,
-                border-color 0.28s ease;
-  }
-  .mic-visualizer.active {
-    height: 38px;
-    padding: 6px 18px;
-    border-top: 1px solid var(--border-soft);
-  }
-  .mic-bar {
-    width: 3px;
-    min-height: 3px;
-    background: var(--accent);
-    border-radius: 2px;
-    box-shadow: 0 0 4px rgba(255,122,153,0.6);
-    transform: scaleY(0.15);
-    transform-origin: center;
-    transition: transform 0.06s ease;
-  }
 </style>
 </head>
 <body>
-  <svg class="wireframe" id="wireframe" preserveAspectRatio="none"></svg>
 
-  <div class="corner tl"></div>
-  <div class="corner tr"></div>
-  <div class="corner bl"></div>
-  <div class="corner br"></div>
+<!-- Constellation background -->
+<svg id="constellation" preserveAspectRatio="xMidYMid slice"></svg>
 
-  <div class="app">
-    <header>
-      <div class="weather">
-        <div class="loc">JUPI · PE</div>
-        <div class="temp">25°</div>
-        <div class="cond">CHUVISCO</div>
+<!-- Subtle scanline -->
+<div class="scan"></div>
+
+<!-- HUD corners -->
+<div class="hud-corner tl"></div>
+<div class="hud-corner tr"></div>
+<div class="hud-corner bl"></div>
+<div class="hud-corner br"></div>
+
+<main class="stage" data-screen-label="01 Clara HUD Default">
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="weather">
+      <div class="weather__loc">JUPI · PE · BR</div>
+      <div class="weather__row">
+        <div class="weather__temp">25°</div>
+        <div class="weather__cond">Chuvisco</div>
       </div>
-      <div class="clock">
-        <div class="time" id="time">--:--</div>
-        <div class="date" id="date">---</div>
-      </div>
-    </header>
-
-    <div class="title">Clara · Assistente Pessoal</div>
-
-    <div class="stage-wrap">
-      <div class="clara-stage" id="claraStage" role="button" tabindex="0" aria-label="Abrir chat com a Clara">
-        <div class="halo-outer"></div>
-        <div class="core-stage" id="coreStage"></div>
+      <div class="weather__meta">
+        <span>UMID 84%</span>
+        <span>VENTO 11 KM/H</span>
       </div>
     </div>
 
-    <div class="status">
-      <span class="dot"></span><span>Ouvindo · Diga "Hey Jarvis"</span>
-    </div>
-
-    <footer>
-      <div class="saas">
-        <div class="item"><a href="https://rpmpro.com.br" target="_blank">RPM</a><small>RPM Pro</small></div>
-        <div class="item"><a href="https://dmtechapp.com.br" target="_blank">DMT</a><small>DMTech</small></div>
-        <div class="item"><a href="https://sistema.edreng.com.br" target="_blank">EDR</a><small>EDR Sys</small></div>
-        <div class="item"><a href="https://dmpayapp.com.br" target="_blank">PAY</a><small>DM Pay</small></div>
-        <div class="item"><a href="https://app.dmstack.com.br" target="_blank">DMS</a><small>DM Smart</small></div>
-        <div class="item"><a href="obsidian://open" target="_blank">OBS</a><small>Obsidian</small></div>
+    <div class="clock">
+      <div class="clock__time">
+        <span id="t-h">09</span><span class="clock__sep">:</span><span id="t-m">26</span><span class="clock__sec" id="t-s">14</span>
       </div>
-    </footer>
+      <div class="clock__date" id="t-date">SAB · 09 MAI 2026 · SEM 19</div>
+    </div>
+  </header>
+
+  <!-- Title band with separators -->
+  <div class="title-band">
+    <div class="title-band__line"></div>
+    <div class="title-band__label">
+      <span class="dot"></span>
+      <span class="title-word">CLARA</span>
+      <span class="dot"></span>
+    </div>
+    <div class="title-band__line right"></div>
   </div>
 
-  <!-- Chat overlay (clica na esfera pra abrir) -->
-  <aside class="chat-panel" id="chatPanel" aria-hidden="true">
-    <div class="chat-header">
-      <div class="title-block">
-        <div class="name">Clara</div>
-        <div class="sub">Conversa direta</div>
+  <!-- CORE AREA -->
+  <section class="core-area">
+
+    <div class="core-svg-wrap" id="claraStage" role="button" tabindex="0" aria-label="Abrir chat com a Clara">
+      <svg class="core-svg" viewBox="0 0 500 500">
+        <defs>
+          <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%"   stop-color="#ffe6ec" stop-opacity="1"/>
+            <stop offset="35%"  stop-color="#ff7a99" stop-opacity="0.85"/>
+            <stop offset="70%"  stop-color="#ff5577" stop-opacity="0.25"/>
+            <stop offset="100%" stop-color="#ff5577" stop-opacity="0"/>
+          </radialGradient>
+          <radialGradient id="haloGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%"   stop-color="#ff7a99" stop-opacity="0.5"/>
+            <stop offset="60%"  stop-color="#ff5577" stop-opacity="0.08"/>
+            <stop offset="100%" stop-color="#ff5577" stop-opacity="0"/>
+          </radialGradient>
+          <linearGradient id="arcGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%"   stop-color="#ff7a99" stop-opacity="0"/>
+            <stop offset="50%"  stop-color="#ff7a99" stop-opacity="1"/>
+            <stop offset="100%" stop-color="#ffd5d5" stop-opacity="1"/>
+          </linearGradient>
+        </defs>
+
+        <!-- Outer faint disc -->
+        <circle cx="250" cy="250" r="210" fill="none" stroke="#ff7a99" stroke-opacity="0.08" stroke-width="1"/>
+
+        <!-- Tick ring -->
+        <g class="ring-tick" id="tickRing"></g>
+
+        <!-- Outer label ring (faint dashed) -->
+        <circle cx="250" cy="250" r="195" fill="none" stroke="#ff7a99" stroke-opacity="0.18" stroke-width="1" stroke-dasharray="2 4"/>
+
+        <!-- Outer rotating arcs -->
+        <g class="ring-arc-outer">
+          <!-- top-right arc -->
+          <path d="M 250 65 A 185 185 0 0 1 415 195"
+                fill="none" stroke="#ff7a99" stroke-width="1.4" stroke-linecap="round" stroke-opacity="0.85"/>
+          <circle cx="415" cy="195" r="3.2" fill="#ffd5d5"/>
+          <circle cx="415" cy="195" r="6" fill="#ff7a99" fill-opacity="0.25"/>
+          <circle cx="250" cy="65"  r="2.5" fill="#ff7a99"/>
+
+          <!-- bottom-left arc -->
+          <path d="M 250 435 A 185 185 0 0 1 85 305"
+                fill="none" stroke="#ff7a99" stroke-width="1.4" stroke-linecap="round" stroke-opacity="0.85"/>
+          <circle cx="85" cy="305" r="3.2" fill="#ffd5d5"/>
+          <circle cx="85" cy="305" r="6" fill="#ff7a99" fill-opacity="0.25"/>
+          <circle cx="250" cy="435" r="2.5" fill="#ff7a99"/>
+        </g>
+
+        <!-- Mid ring -->
+        <circle cx="250" cy="250" r="140" fill="none" stroke="#ff7a99" stroke-opacity="0.22" stroke-width="1"/>
+
+        <!-- Inner rotating arc segments -->
+        <g class="ring-arc-inner">
+          <path d="M 250 110 A 140 140 0 0 1 380 230"
+                fill="none" stroke="#ffd5d5" stroke-width="1.2" stroke-linecap="round" stroke-opacity="0.7"/>
+          <path d="M 250 390 A 140 140 0 0 1 120 270"
+                fill="none" stroke="#ffd5d5" stroke-width="1.2" stroke-linecap="round" stroke-opacity="0.7"/>
+        </g>
+
+        <!-- Inner geometric polygon (decagon-style with cross-lines) -->
+        <g class="inner-poly" id="innerPoly"></g>
+        <g class="vertex-dots" id="vertexDots"></g>
+
+        <!-- Crosshair through center -->
+        <line x1="250" y1="232" x2="250" y2="240" stroke="#ff7a99" stroke-opacity="0.5" stroke-width="1"/>
+        <line x1="250" y1="260" x2="250" y2="268" stroke="#ff7a99" stroke-opacity="0.5" stroke-width="1"/>
+        <line x1="232" y1="250" x2="240" y2="250" stroke="#ff7a99" stroke-opacity="0.5" stroke-width="1"/>
+        <line x1="260" y1="250" x2="268" y2="250" stroke="#ff7a99" stroke-opacity="0.5" stroke-width="1"/>
+
+        <!-- Halo + core -->
+        <circle class="core-halo" cx="250" cy="250" r="42" fill="url(#haloGlow)"/>
+        <circle class="core-glow" cx="250" cy="250" r="14" fill="url(#coreGlow)"/>
+        <circle cx="250" cy="250" r="3" fill="#ffe6ec"/>
+      </svg>
+    </div>
+  </section>
+
+  <!-- BOTTOM: status + shortcuts -->
+  <section>
+    <div class="status-wrap">
+      <div class="status-pill" role="status" aria-live="polite">
+        <span class="status-pill__dot" aria-hidden="true"></span>
+        <span>OUVINDO</span>
+        <span class="status-pill__sep"></span>
+        <span class="status-pill__cmd">DIGA <span class="q">"</span>HEY JARVIS<span class="q">"</span></span>
       </div>
-      <button class="chat-close" id="chatClose" aria-label="Fechar chat">×</button>
     </div>
-    <div class="chat-messages" id="chatMessages">
-      <div class="msg system">Início da conversa</div>
-      <div class="msg clara">Tô aqui, Chefe. Manda.</div>
+
+    <div class="shortcuts" id="shortcuts">
+      <!-- populated by JS for cleanliness -->
     </div>
-    <div class="mic-visualizer" id="micVisualizer" aria-hidden="true"></div>
-    <form class="chat-input-wrap" id="chatForm">
-      <textarea class="chat-input" id="chatInput" rows="1"
-                placeholder="Digite ou aperte o mic..."
-                autocomplete="off"></textarea>
-      <button type="button" class="chat-mic" id="chatMic" aria-label="Gravar áudio" title="Aperte e fale">🎤</button>
-      <button type="submit" class="chat-send" id="chatSend" aria-label="Enviar">↑</button>
-    </form>
-  </aside>
+
+    <div class="footer-cap">
+      <span>DM STACK</span>
+    </div>
+  </section>
+
+</main>
+
+<!-- Chat overlay (clica na esfera pra abrir) -->
+<aside class="chat-panel" id="chatPanel" aria-hidden="true">
+  <div class="chat-header">
+    <div class="title-block">
+      <div class="name">Clara</div>
+      <div class="sub">Conversa direta</div>
+    </div>
+    <button class="chat-close" id="chatClose" aria-label="Fechar chat">×</button>
+  </div>
+  <div class="chat-messages" id="chatMessages">
+    <div class="msg system">Início da conversa</div>
+  </div>
+  <div class="mic-visualizer" id="micVisualizer" aria-hidden="true"></div>
+  <form class="chat-input-wrap" id="chatForm">
+    <textarea class="chat-input" id="chatInput" rows="1"
+              placeholder="Digite ou aperte o mic..."
+              autocomplete="off"></textarea>
+    <button type="button" class="chat-mic" id="chatMic" aria-label="Gravar áudio" title="Aperte e fale">🎤</button>
+    <button type="submit" class="chat-send" id="chatSend" aria-label="Enviar">↑</button>
+  </form>
+</aside>
 
 <script>
-  // Núcleo Jarvis — Múltiplos SVGs sobrepostos (cada camada gira como elemento HTML)
-  (function buildCore() {
-    const stage = document.getElementById("coreStage");
-    const VB = "-220 -220 440 440";
+  /* ============ CLOCK ============ */
+  const tH = document.getElementById('t-h');
+  const tM = document.getElementById('t-m');
+  const tS = document.getElementById('t-s');
+  const tDate = document.getElementById('t-date');
+  const tFoot = document.getElementById('ts-foot');
 
-    // Helper: cria um SVG-camada
-    const layer = (cls, content) =>
-      `<svg class="${cls}" viewBox="${VB}" preserveAspectRatio="xMidYMid meet">${content}</svg>`;
+  const DAYS = ['DOM','SEG','TER','QUA','QUI','SEX','SAB'];
+  const MONTHS = ['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
 
-    // Defs precisam ficar num SVG visível ou os outros não acham gradientes
-    const defs = `
-      <defs>
-        <radialGradient id="coreGrad" cx="50%" cy="50%" r="50%">
-          <stop offset="0%"  stop-color="#ffe4ec" stop-opacity="0.95"/>
-          <stop offset="35%" stop-color="#ff7a99" stop-opacity="0.7"/>
-          <stop offset="70%" stop-color="#b8264a" stop-opacity="0.25"/>
-          <stop offset="100%" stop-color="#4a0a1f" stop-opacity="0"/>
-        </radialGradient>
-      </defs>`;
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function weekOfYear(d) {
+    const start = new Date(d.getFullYear(), 0, 1);
+    const diff = (d - start) / 86400000;
+    return Math.ceil((diff + start.getDay() + 1) / 7);
+  }
 
-    let html = "";
+  const startTs = Date.now();
+  function tick() {
+    const d = new Date();
+    tH.textContent = pad(d.getHours());
+    tM.textContent = pad(d.getMinutes());
+    tS.textContent = pad(d.getSeconds());
+    tDate.textContent = `${DAYS[d.getDay()]} · ${pad(d.getDate())} ${MONTHS[d.getMonth()]} ${d.getFullYear()} · SEM ${pad(weekOfYear(d))}`;
 
-    // Camada 1 — Anel externo + tick marks (giro horário lento)
-    let ticks = "";
-    const R_OUT = 200;
-    const TICK_COUNT = 96;
-    for (let i = 0; i < TICK_COUNT; i++) {
-      const a = (i / TICK_COUNT) * Math.PI * 2;
-      const big = i % 8 === 0;
-      const len = big ? 14 : 6;
-      const x1 = Math.cos(a) * R_OUT;
-      const y1 = Math.sin(a) * R_OUT;
-      const x2 = Math.cos(a) * (R_OUT - len);
-      const y2 = Math.sin(a) * (R_OUT - len);
-      const op = big ? 1 : 0.45;
-      ticks += `<line class="tick" x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke-opacity="${op}"/>`;
-    }
-    html += layer("layer-spin-cw", `
-      ${defs}
-      <circle class="ring-line" cx="0" cy="0" r="${R_OUT}" stroke-opacity="0.7"/>
-      <circle class="ring-line" cx="0" cy="0" r="${R_OUT - 18}" stroke-opacity="0.25"/>
-      ${ticks}
-    `);
+    const elapsed = Math.floor((Date.now() - startTs) / 1000) + 152229; // arbitrary offset
+    const hh = pad(Math.floor(elapsed / 3600));
+    const mm = pad(Math.floor((elapsed % 3600) / 60));
+    const ss = pad(elapsed % 60);
+    if (tFoot) tFoot.textContent = `T+${hh}:${mm}:${ss}`;
+  }
+  tick();
+  setInterval(tick, 1000);
 
-    // Camada 2 — Anel intermediário com arcos quebrados
-    const R_MID = 160;
-    let arcs = "";
-    const arcSegs = [
-      { start: 10,  end: 70,  bright: true  },
-      { start: 95,  end: 175, bright: false },
-      { start: 200, end: 250, bright: true  },
-      { start: 280, end: 340, bright: false }
-    ];
-    arcSegs.forEach(seg => {
-      const s = (seg.start * Math.PI) / 180;
-      const e = (seg.end * Math.PI) / 180;
-      const x1 = (Math.cos(s) * R_MID).toFixed(2);
-      const y1 = (Math.sin(s) * R_MID).toFixed(2);
-      const x2 = (Math.cos(e) * R_MID).toFixed(2);
-      const y2 = (Math.sin(e) * R_MID).toFixed(2);
-      const large = (seg.end - seg.start) > 180 ? 1 : 0;
-      const cls = seg.bright ? "arc-bright" : "arc-soft";
-      arcs += `<path class="${cls}" d="M ${x1} ${y1} A ${R_MID} ${R_MID} 0 ${large} 1 ${x2} ${y2}"/>`;
-    });
-    let midNodes = "";
-    for (let i = 0; i < 12; i++) {
-      const a = (i / 12) * Math.PI * 2 + 0.13;
-      const x = (Math.cos(a) * R_MID).toFixed(2);
-      const y = (Math.sin(a) * R_MID).toFixed(2);
-      const cls = i % 4 === 0 ? "node-bright" : "node";
-      const r = i % 4 === 0 ? 3.5 : 2.2;
-      midNodes += `<circle class="${cls}" cx="${x}" cy="${y}" r="${r}"/>`;
-    }
-    html += layer("layer-spin-ccw", arcs + midNodes);
-
-    // Camada 3 — Linhas radiais finas
-    let radials = "";
-    const R_RAD_OUT = 145;
-    const R_RAD_IN = 95;
-    const RADIAL_COUNT = 60;
-    for (let i = 0; i < RADIAL_COUNT; i++) {
-      const a = (i / RADIAL_COUNT) * Math.PI * 2;
-      const x1 = (Math.cos(a) * R_RAD_IN).toFixed(2);
-      const y1 = (Math.sin(a) * R_RAD_IN).toFixed(2);
-      const x2 = (Math.cos(a) * R_RAD_OUT).toFixed(2);
-      const y2 = (Math.sin(a) * R_RAD_OUT).toFixed(2);
-      const op = i % 3 === 0 ? 0.6 : 0.2;
-      radials += `<line class="radial" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke-opacity="${op}"/>`;
-    }
-    html += layer("layer-spin-slow", radials);
-
-    // Camada 4 — Anel interno com circuito
-    const R_INNER = 80;
-    let circuit = "";
-    let innerNodes = "";
-    const innerPts = [];
-    for (let i = 0; i < 16; i++) {
-      const a = (i / 16) * Math.PI * 2;
-      innerPts.push({ x: Math.cos(a) * R_INNER, y: Math.sin(a) * R_INNER });
-    }
-    const connections = [[0,5],[1,9],[2,11],[3,7],[4,13],[6,12],[8,14],[10,15]];
-    connections.forEach(([a, b]) => {
-      circuit += `<line class="ring-line" x1="${innerPts[a].x.toFixed(2)}" y1="${innerPts[a].y.toFixed(2)}" x2="${innerPts[b].x.toFixed(2)}" y2="${innerPts[b].y.toFixed(2)}" stroke-opacity="0.25"/>`;
-    });
-    innerPts.forEach((p, i) => {
-      const cls = i % 3 === 0 ? "node-bright" : "node";
-      const r = i % 3 === 0 ? 2.8 : 1.6;
-      innerNodes += `<circle class="${cls}" cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="${r}"/>`;
-    });
-    html += layer("layer-spin-cw", `
-      <circle class="ring-line" cx="0" cy="0" r="${R_INNER}" stroke-opacity="0.45"/>
-      ${circuit}${innerNodes}
-    `);
-
-    // Camada 5 — Labels técnicos REMOVIDOS (poluição visual)
-    // Anéis e órbitas giram limpos, foco total no núcleo central.
-
-    // Camada 6 — Núcleo brilhante central (estático, não rotaciona — só pulsa)
-    html += layer("layer-static", `
-      <circle class="core-glow" cx="0" cy="0" r="55"/>
-      <circle cx="0" cy="0" r="8" fill="#ffe4ec" filter="drop-shadow(0 0 12px #ff7a99)"/>
-    `);
-
-    stage.innerHTML = html;
-  })();
-
-  // Wireframe constelação (gerado 1x, sem reflow contínuo)
-  (function buildWireframe() {
-    const svg = document.getElementById("wireframe");
+  /* ============ CONSTELLATION BG ============ */
+  (function buildConstellation() {
+    const svg = document.getElementById('constellation');
     const W = window.innerWidth;
     const H = window.innerHeight;
-    svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    svg.setAttribute('width', W);
+    svg.setAttribute('height', H);
 
-    // Seed determinístico pra layout consistente
-    let seed = 42;
+    // Clear and rebuild
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+    // Seeded random
+    let seed = 4242;
     const rand = () => {
       seed = (seed * 9301 + 49297) % 233280;
       return seed / 233280;
     };
 
-    const cx = W / 2, cy = H / 2;
-    const exclR = Math.min(W, H) * 0.22; // zona da esfera (sem pontos perto)
-    const pts = [];
-    const total = 55;
-    let tries = 0;
-    while (pts.length < total && tries < 800) {
-      tries++;
-      const x = rand() * W;
-      const y = rand() * H;
-      const dx = x - cx, dy = y - cy;
-      if (Math.sqrt(dx*dx + dy*dy) < exclR) continue;
-      pts.push({ x, y });
+    const N = Math.min(140, Math.floor((W * H) / 9500));
+    const points = [];
+    for (let i = 0; i < N; i++) {
+      points.push({
+        x: rand() * W,
+        y: rand() * H,
+        r: 0.6 + rand() * 1.6,
+        op: 0.18 + rand() * 0.6,
+        delay: rand() * 4,
+        dur: 2 + rand() * 4
+      });
     }
 
-    // Conectar pontos próximos
-    const maxDist = Math.min(W, H) * 0.18;
-    let svgInner = "";
-    for (let i = 0; i < pts.length; i++) {
-      for (let j = i + 1; j < pts.length; j++) {
-        const dx = pts[i].x - pts[j].x;
-        const dy = pts[i].y - pts[j].y;
-        const d = Math.sqrt(dx*dx + dy*dy);
-        if (d < maxDist) {
-          const op = (1 - d / maxDist) * 0.35;
-          svgInner += `<line x1="${pts[i].x}" y1="${pts[i].y}" x2="${pts[j].x}" y2="${pts[j].y}" stroke-opacity="${op.toFixed(2)}"/>`;
-        }
+    // Draw a few faint connecting lines (constellation feel)
+    for (let i = 0; i < points.length; i++) {
+      const a = points[i];
+      // connect to nearest 1 point if close enough
+      let best = null, bestD = Infinity;
+      for (let j = i + 1; j < Math.min(points.length, i + 14); j++) {
+        const b = points[j];
+        const d = (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
+        if (d < bestD) { bestD = d; best = b; }
+      }
+      if (best && bestD < 26000 && rand() > 0.55) {
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', a.x); line.setAttribute('y1', a.y);
+        line.setAttribute('x2', best.x); line.setAttribute('y2', best.y);
+        line.setAttribute('stroke', '#ff7a99');
+        line.setAttribute('stroke-width', '0.5');
+        line.setAttribute('stroke-opacity', (0.04 + rand() * 0.06).toFixed(3));
+        svg.appendChild(line);
       }
     }
 
-    // Pontos
-    pts.forEach((p, i) => {
-      const r = 1.5 + rand() * 1.5;
-      const bright = i % 7 === 0 ? "bright" : "";
-      const delay = (rand() * 4).toFixed(2);
-      svgInner += `<circle class="${bright}" cx="${p.x}" cy="${p.y}" r="${r}" style="animation-delay:${delay}s"/>`;
+    // Draw points with pulse
+    points.forEach((p, i) => {
+      const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      c.setAttribute('cx', p.x);
+      c.setAttribute('cy', p.y);
+      c.setAttribute('r', p.r);
+      c.setAttribute('fill', i % 7 === 0 ? '#ffd5d5' : '#ff7a99');
+      c.setAttribute('opacity', p.op);
+      // pulse animation via SMIL fallback to keep deterministic
+      const a = document.createElementNS('http://www.w3.org/2000/svg', 'animate');
+      a.setAttribute('attributeName', 'opacity');
+      a.setAttribute('values', `${p.op};${p.op * 0.25};${p.op}`);
+      a.setAttribute('dur', `${p.dur}s`);
+      a.setAttribute('begin', `${p.delay}s`);
+      a.setAttribute('repeatCount', 'indefinite');
+      c.appendChild(a);
+      svg.appendChild(c);
     });
-
-    svg.innerHTML = svgInner;
   })();
 
   // Rebuild on resize (debounced)
-  let resizeT;
-  window.addEventListener("resize", () => {
-    clearTimeout(resizeT);
-    resizeT = setTimeout(() => location.reload(), 250);
+  let rTo;
+  window.addEventListener('resize', () => {
+    clearTimeout(rTo);
+    rTo = setTimeout(() => {
+      const e = new Event('rebuild');
+      // simplest: reload constellation by re-running
+      const svg = document.getElementById('constellation');
+      while (svg.firstChild) svg.removeChild(svg.firstChild);
+      // re-trigger by re-evaluating IIFE logic via location.hash trick — just rebuild inline:
+      const W = window.innerWidth, H = window.innerHeight;
+      svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+      svg.setAttribute('width', W); svg.setAttribute('height', H);
+      let seed = 4242;
+      const rand = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+      const N = Math.min(140, Math.floor((W * H) / 9500));
+      for (let i = 0; i < N; i++) {
+        const x = rand()*W, y = rand()*H, r = 0.6 + rand()*1.6, op = 0.18 + rand()*0.6;
+        const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        c.setAttribute('cx', x); c.setAttribute('cy', y); c.setAttribute('r', r);
+        c.setAttribute('fill', i % 7 === 0 ? '#ffd5d5' : '#ff7a99');
+        c.setAttribute('opacity', op);
+        const a = document.createElementNS('http://www.w3.org/2000/svg', 'animate');
+        a.setAttribute('attributeName', 'opacity');
+        a.setAttribute('values', `${op};${op*0.25};${op}`);
+        a.setAttribute('dur', `${2+rand()*4}s`);
+        a.setAttribute('begin', `${rand()*4}s`);
+        a.setAttribute('repeatCount', 'indefinite');
+        c.appendChild(a);
+        svg.appendChild(c);
+      }
+    }, 250);
   });
 
-  function tick() {
-    const d = new Date();
-    const hh = String(d.getHours()).padStart(2, "0");
-    const mm = String(d.getMinutes()).padStart(2, "0");
-    document.getElementById("time").textContent = `${hh}:${mm}`;
-    const dias  = ["DOM","SEG","TER","QUA","QUI","SEX","SAB"];
-    const meses = ["JAN","FEV","MAR","ABR","MAI","JUN","JUL","AGO","SET","OUT","NOV","DEZ"];
-    document.getElementById("date").textContent =
-      `${dias[d.getDay()]} · ${d.getDate()} ${meses[d.getMonth()]} ${d.getFullYear()}`;
-  }
-  setInterval(tick, 30000); tick();
+  /* ============ TICK RING (around core) ============ */
+  (function buildTickRing() {
+    const g = document.getElementById('tickRing');
+    const cx = 250, cy = 250, r = 175;
+    // Labels giratórios removidos por decisão UX (poluição visual).
+    const labels = [];
 
-  // === Supabase config (chat realtime Clara) ===
+    // Tick marks
+    const N = 96;
+    for (let i = 0; i < N; i++) {
+      const ang = (i / N) * Math.PI * 2 - Math.PI / 2;
+      const isMajor = i % 8 === 0;
+      const isMid = i % 4 === 0;
+      const inner = r - (isMajor ? 8 : isMid ? 5 : 3);
+      const outer = r;
+      const x1 = cx + Math.cos(ang) * inner;
+      const y1 = cy + Math.sin(ang) * inner;
+      const x2 = cx + Math.cos(ang) * outer;
+      const y2 = cy + Math.sin(ang) * outer;
+      const ln = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      ln.setAttribute('x1', x1); ln.setAttribute('y1', y1);
+      ln.setAttribute('x2', x2); ln.setAttribute('y2', y2);
+      ln.setAttribute('stroke', '#ff7a99');
+      ln.setAttribute('stroke-width', isMajor ? 1.2 : 0.7);
+      ln.setAttribute('stroke-opacity', isMajor ? 0.7 : isMid ? 0.4 : 0.22);
+      g.appendChild(ln);
+    }
+
+    // Curved labels
+    const ns = 'http://www.w3.org/2000/svg';
+    labels.forEach((lb, idx) => {
+      const pathId = `tickPath${idx}`;
+      const lr = r + 6;
+      const startA = (lb.angle - 12) * Math.PI / 180;
+      const endA   = (lb.angle + 12) * Math.PI / 180;
+      const sx = cx + Math.cos(startA) * lr;
+      const sy = cy + Math.sin(startA) * lr;
+      const ex = cx + Math.cos(endA) * lr;
+      const ey = cy + Math.sin(endA) * lr;
+      const path = document.createElementNS(ns, 'path');
+      path.setAttribute('id', pathId);
+      path.setAttribute('d', `M ${sx} ${sy} A ${lr} ${lr} 0 0 1 ${ex} ${ey}`);
+      path.setAttribute('fill', 'none');
+      path.setAttribute('stroke', 'none');
+      g.appendChild(path);
+
+      const txt = document.createElementNS(ns, 'text');
+      txt.setAttribute('font-family', 'JetBrains Mono, monospace');
+      txt.setAttribute('font-size', '8');
+      txt.setAttribute('letter-spacing', '2');
+      txt.setAttribute('fill', '#ff7a99');
+      txt.setAttribute('fill-opacity', '0.65');
+      const tp = document.createElementNS(ns, 'textPath');
+      tp.setAttribute('href', `#${pathId}`);
+      tp.setAttribute('startOffset', '0');
+      tp.textContent = lb.text;
+      txt.appendChild(tp);
+      g.appendChild(txt);
+    });
+  })();
+
+  /* ============ INNER POLYGON ============ */
+  (function buildPoly() {
+    const poly = document.getElementById('innerPoly');
+    const dots = document.getElementById('vertexDots');
+    const cx = 250, cy = 250, r = 70;
+    const N = 12;
+    const verts = [];
+    for (let i = 0; i < N; i++) {
+      const ang = (i / N) * Math.PI * 2 - Math.PI / 2;
+      verts.push({ x: cx + Math.cos(ang) * r, y: cy + Math.sin(ang) * r });
+    }
+    // Polygon outline
+    const pts = verts.map(v => `${v.x},${v.y}`).join(' ');
+    const pg = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+    pg.setAttribute('points', pts);
+    pg.setAttribute('fill', 'none');
+    pg.setAttribute('stroke', '#ff7a99');
+    pg.setAttribute('stroke-opacity', '0.45');
+    pg.setAttribute('stroke-width', '0.8');
+    poly.appendChild(pg);
+
+    // Cross lines (every other vertex to opposite)
+    for (let i = 0; i < N; i++) {
+      for (let j = i + 2; j < N; j++) {
+        if ((j - i) % 2 !== 0) continue;
+        const ln = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        ln.setAttribute('x1', verts[i].x); ln.setAttribute('y1', verts[i].y);
+        ln.setAttribute('x2', verts[j].x); ln.setAttribute('y2', verts[j].y);
+        ln.setAttribute('stroke', '#ff7a99');
+        ln.setAttribute('stroke-opacity', '0.12');
+        ln.setAttribute('stroke-width', '0.6');
+        poly.appendChild(ln);
+      }
+    }
+
+    // Vertex dots (rotating opposite direction)
+    verts.forEach((v, i) => {
+      const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      c.setAttribute('cx', v.x);
+      c.setAttribute('cy', v.y);
+      c.setAttribute('r', i % 3 === 0 ? 2.8 : 1.6);
+      c.setAttribute('fill', i % 3 === 0 ? '#ffe6ec' : '#ff7a99');
+      c.setAttribute('opacity', i % 3 === 0 ? 1 : 0.7);
+      dots.appendChild(c);
+    });
+  })();
+
+  /* ============ SHORTCUTS ============ */
+  const SHORTCUTS = [
+    { code: 'RPM', id: '01', label: 'RPM\u00a0PRO',     icon: 'tach' },
+    { code: 'DMT', id: '02', label: 'DM\u00a0TECH',     icon: 'cog'  },
+    { code: 'EDR', id: '03', label: 'EDR\u00a0SYS',     icon: 'shield' },
+    { code: 'PAY', id: '04', label: 'DM\u00a0PAY',      icon: 'wallet' },
+    { code: 'DMS', id: '05', label: 'DM\u00a0SMART',    icon: 'spark' },
+    { code: 'OBS', id: '06', label: 'OBSIDIAN',         icon: 'gem' }
+  ];
+
+  const ICONS = {
+    tach:   '<circle cx="9" cy="9" r="7" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M9 9 L13 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="9" cy="9" r="1.2" fill="currentColor"/>',
+    cog:    '<circle cx="9" cy="9" r="2.5" fill="none" stroke="currentColor" stroke-width="1.2"/><g stroke="currentColor" stroke-width="1.2" stroke-linecap="round"><line x1="9" y1="1.5" x2="9" y2="3.5"/><line x1="9" y1="14.5" x2="9" y2="16.5"/><line x1="1.5" y1="9" x2="3.5" y2="9"/><line x1="14.5" y1="9" x2="16.5" y2="9"/><line x1="3.6" y1="3.6" x2="5" y2="5"/><line x1="13" y1="13" x2="14.4" y2="14.4"/><line x1="14.4" y1="3.6" x2="13" y2="5"/><line x1="5" y1="13" x2="3.6" y2="14.4"/></g>',
+    shield: '<path d="M9 1.5 L15 4 V9 C15 12.5 12.5 15.2 9 16.5 C5.5 15.2 3 12.5 3 9 V4 Z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M6.5 9 L8.2 10.7 L11.5 7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
+    wallet: '<rect x="2" y="4.5" width="14" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M2 7 H16" stroke="currentColor" stroke-width="1.2"/><circle cx="12.5" cy="10.5" r="1.3" fill="currentColor"/>',
+    spark:  '<path d="M9 1.5 L10.4 7.6 L16.5 9 L10.4 10.4 L9 16.5 L7.6 10.4 L1.5 9 L7.6 7.6 Z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>',
+    gem:    '<path d="M3 6 L9 1.5 L15 6 L9 16.5 Z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M3 6 L15 6 M9 1.5 L9 16.5 M6 6 L9 11 L12 6" stroke="currentColor" stroke-width="1" stroke-opacity="0.6" fill="none"/>'
+  };
+
+  const sc = document.getElementById('shortcuts');
+  SHORTCUTS.forEach((s, idx) => {
+    const btn = document.createElement('button');
+    btn.className = 'sc';
+    btn.type = 'button';
+    btn.setAttribute('data-code', s.code);
+    btn.innerHTML = `
+      <div class="sc__head">
+        <svg class="sc__icon" viewBox="0 0 18 18" fill="none">${ICONS[s.icon]}</svg>
+        <span class="sc__id">${s.id}</span>
+      </div>
+      <div>
+        <div class="sc__code">${s.code}</div>
+        <div class="sc__label">${s.label}</div>
+      </div>
+      <div class="sc__bar"><i style="width:${20 + (idx * 13) % 65}%"></i></div>
+    `;
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.sc').forEach(x => x.classList.remove('is-active'));
+      btn.classList.add('is-active');
+      // pulse the bar
+      const bar = btn.querySelector('.sc__bar > i');
+      const cur = parseInt(bar.style.width);
+      const next = Math.min(95, cur + 8 + Math.floor(Math.random() * 18));
+      bar.style.width = next + '%';
+    });
+    sc.appendChild(btn);
+  });
+
+  /* ============ STATUS PILL pseudo-listening cycle ============ */
+  const pillCmd = document.querySelector('.status-pill__cmd');
+  const STATES = [
+    'DIGA <span class="q">"</span>HEY JARVIS<span class="q">"</span>',
+    'DIGA <span class="q">"</span>HEY CLARA<span class="q">"</span>',
+    'AGUARDANDO COMANDO',
+    'DIGA <span class="q">"</span>HEY JARVIS<span class="q">"</span>'
+  ];
+  let stIdx = 0;
+  setInterval(() => {
+    stIdx = (stIdx + 1) % STATES.length;
+    if (pillCmd) {
+      pillCmd.style.opacity = '0.3';
+      setTimeout(() => {
+        pillCmd.innerHTML = STATES[stIdx];
+        pillCmd.style.opacity = '0.85';
+      }, 220);
+    }
+  }, 5200);
+
+  /* ============ SUPABASE CONFIG ============ */
   const SUPABASE_URL = "https://bkfkzauhnlulrtttgcii.supabase.co";
   const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrZmt6YXVobmx1bHJ0dHRnY2lpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5NDkwODAsImV4cCI6MjA5MDUyNTA4MH0.VPgVt22TDQ_n17CUS9KSdCnbX4GtQgiEOHio2wK9mhI";
   const CHAT_SESSION_ID = "duam-clara-d7f3a2c1-9b4e-4f0a";
 
-  // === Chat Overlay ===
+  /* ============ CHAT OVERLAY ============ */
   const claraStage = document.getElementById("claraStage");
   const chatPanel  = document.getElementById("chatPanel");
   const chatClose  = document.getElementById("chatClose");
   const chatForm   = document.getElementById("chatForm");
   const chatInput  = document.getElementById("chatInput");
   const chatMsgs   = document.getElementById("chatMessages");
+  const chatMic    = document.getElementById("chatMic");
+  const micViz     = document.getElementById("micVisualizer");
 
   function openChat() {
     chatPanel.classList.add("open");
@@ -889,19 +1406,13 @@
       btn.title = "Tocar de novo";
       const audio = new Audio(audioUrl);
       audio.preload = "auto";
-      btn.addEventListener("click", () => {
-        audio.currentTime = 0;
-        audio.play().catch(() => {});
-      });
+      btn.addEventListener("click", () => { audio.currentTime = 0; audio.play().catch(()=>{}); });
       row.appendChild(btn);
       const lab = document.createElement("span");
       lab.textContent = role === "user" ? "🎤 áudio enviado" : "🔊 voz da Clara";
       row.appendChild(lab);
       div.appendChild(row);
-      // Auto-play apenas para resposta da Clara
-      if (role === "clara") {
-        audio.play().catch(err => console.log("[autoplay bloqueado]", err));
-      }
+      if (role === "clara") audio.play().catch(err => console.log("[autoplay bloqueado]", err));
     }
     chatMsgs.appendChild(div);
     chatMsgs.scrollTop = chatMsgs.scrollHeight;
@@ -917,19 +1428,15 @@
     if (e.key === "Escape" && chatPanel.classList.contains("open")) closeChat();
   });
 
-  // Auto-resize do textarea
   chatInput.addEventListener("input", () => {
     chatInput.style.height = "auto";
     chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + "px";
   });
-  // Enter envia, Shift+Enter quebra linha
   chatInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      chatForm.requestSubmit();
-    }
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); chatForm.requestSubmit(); }
   });
-  // === Supabase client + Realtime ===
+
+  /* ============ SUPABASE REALTIME ============ */
   const supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   const seenIds = new Set();
 
@@ -942,7 +1449,6 @@
     else if (row.role === "clara") appendMsg("clara", row.text || "", audioUrl);
   }
 
-  // Carrega últimas 30 mensagens ao abrir
   async function loadHistory() {
     const { data, error } = await supa
       .from("clara_messages")
@@ -951,14 +1457,12 @@
       .order("created_at", { ascending: true })
       .limit(30);
     if (error) { console.warn("[Clara] erro carregar historico:", error); return; }
-    // Limpa placeholders iniciais e renderiza histórico
     chatMsgs.innerHTML = '<div class="msg system">Início da conversa</div>';
     (data || []).forEach(renderRow);
     if (!data || data.length === 0) appendMsg("clara", "Tô aqui, Chefe. Manda.");
   }
   loadHistory();
 
-  // Subscribe a INSERTs novos
   supa.channel("clara-msgs")
     .on("postgres_changes",
         { event: "INSERT", schema: "public", table: "clara_messages",
@@ -985,23 +1489,16 @@
       console.warn("[Clara] erro enviar:", error);
       appendMsg("system", "Erro ao enviar — verifica conexão.");
     }
-    // Não chamamos appendMsg("user", ...) aqui — vem via subscribe
   });
 
-  // === Mic recorder ===
-  const chatMic = document.getElementById("chatMic");
-  const micViz  = document.getElementById("micVisualizer");
+  /* ============ MIC RECORDER + VISUALIZER ============ */
   let mediaRecorder = null;
   let recordedChunks = [];
   let recordingStartTs = 0;
-
-  // === Audio Visualizer ===
   const NUM_BARS = 28;
-  let audioCtx = null;
-  let analyser = null;
-  let vizFrame = null;
-  let vizSource = null;
-  // Cria as barras 1x
+  let audioCtx = null, analyser = null, vizFrame = null, vizSource = null;
+
+  // Cria barras 1x
   (function initBars(){
     micViz.innerHTML = "";
     for (let i = 0; i < NUM_BARS; i++) {
@@ -1022,26 +1519,22 @@
       analyser.smoothingTimeConstant = 0.7;
       vizSource.connect(analyser);
       micViz.classList.add("active");
-
       const data = new Uint8Array(analyser.frequencyBinCount);
-      const sliceStep = Math.floor(data.length * 0.7 / NUM_BARS); // ignora highs vazios
+      const sliceStep = Math.floor(data.length * 0.7 / NUM_BARS);
       function draw() {
         analyser.getByteFrequencyData(data);
         for (let i = 0; i < NUM_BARS; i++) {
-          // Distância do centro pra dar simetria mirror
           const center = (NUM_BARS - 1) / 2;
           const dist = Math.abs(i - center);
           const idx = Math.floor(dist * sliceStep) + 2;
           const v = (data[idx] || 0) / 255;
-          const scale = 0.15 + v * 1.4;     // 0.15..1.55
+          const scale = 0.15 + v * 1.4;
           vizBars[i].style.transform = `scaleY(${Math.min(scale, 1.6).toFixed(3)})`;
         }
         vizFrame = requestAnimationFrame(draw);
       }
       draw();
-    } catch (err) {
-      console.warn("[viz] erro:", err);
-    }
+    } catch (err) { console.warn("[viz] erro:", err); }
   }
 
   function stopVisualizer() {
@@ -1050,19 +1543,13 @@
     if (vizSource) { try { vizSource.disconnect(); } catch(_){} vizSource = null; }
     analyser = null;
     micViz.classList.remove("active");
-    // Reset visual das barras
     for (let i = 0; i < vizBars.length; i++) {
       vizBars[i].style.transform = "scaleY(0.15)";
     }
   }
 
   function pickMimeType() {
-    const candidates = [
-      "audio/webm;codecs=opus",
-      "audio/webm",
-      "audio/ogg;codecs=opus",
-      "audio/mp4",
-    ];
+    const candidates = ["audio/webm;codecs=opus","audio/webm","audio/ogg;codecs=opus","audio/mp4"];
     for (const m of candidates) {
       if (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(m)) return m;
     }
@@ -1080,9 +1567,7 @@
     }
     const mimeType = pickMimeType();
     try {
-      mediaRecorder = mimeType
-        ? new MediaRecorder(stream, { mimeType })
-        : new MediaRecorder(stream);
+      mediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
     } catch (err) {
       appendMsg("system", "Navegador não suporta gravação de áudio.");
       stream.getTracks().forEach(t => t.stop());
@@ -1098,7 +1583,8 @@
       const duration = (Date.now() - recordingStartTs) / 1000;
       if (duration < 0.5) {
         chatMic.classList.remove("recording", "processing");
-        return; // muito curto, ignora
+        chatMic.textContent = "🎤";
+        return;
       }
       const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || "audio/webm" });
       await uploadAndSendAudio(blob);
@@ -1121,13 +1607,11 @@
 
   async function uploadAndSendAudio(blob) {
     try {
-      const ext = (blob.type.includes("ogg") ? "ogg"
-                : blob.type.includes("mp4") ? "m4a"
-                : "webm");
+      const ext = blob.type.includes("ogg") ? "ogg" : blob.type.includes("mp4") ? "m4a" : "webm";
       const fileName = `${CHAT_SESSION_ID}/user-${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
-      const { data: up, error: upErr } = await supa.storage
-        .from("clara-audio")
-        .upload(fileName, blob, { contentType: blob.type, upsert: false });
+      const { error: upErr } = await supa.storage.from("clara-audio").upload(fileName, blob, {
+        contentType: blob.type, upsert: false,
+      });
       if (upErr) {
         console.warn("[upload erro]", upErr);
         appendMsg("system", "Falha ao enviar áudio.");
@@ -1137,8 +1621,7 @@
       const audioUrl = pub.publicUrl;
       const { error: insErr } = await supa.from("clara_messages").insert({
         chat_session_id: CHAT_SESSION_ID,
-        role: "user",
-        source: "hud",
+        role: "user", source: "hud",
         text: "[áudio]",
         metadata: { audio_url: audioUrl },
       });
@@ -1151,37 +1634,31 @@
     }
   }
 
-  // Click toggle (simples, funciona em mobile + desktop)
   chatMic.addEventListener("click", () => {
     if (mediaRecorder && mediaRecorder.state === "recording") stopRecording();
     else startRecording();
   });
 
-  // Service Worker - mata qualquer SW velho ANTES de registrar o novo
-  // Evita loop com versões antigas que tinham skipWaiting agressivo
+  /* ============ SERVICE WORKER (PWA) ============ */
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", async () => {
       try {
-        // Detecta versões velhas (v1.0-v1.3) e remove tudo
-        const KILL_VERSION_KEY = "clara-sw-kill-v3";
-        const alreadyKilled = localStorage.getItem(KILL_VERSION_KEY);
-        if (!alreadyKilled) {
+        const KILL_VERSION_KEY = "clara-sw-kill-v4";
+        if (!localStorage.getItem(KILL_VERSION_KEY)) {
           const regs = await navigator.serviceWorker.getRegistrations();
           for (const r of regs) await r.unregister();
           const cacheKeys = await caches.keys();
-          for (const k of cacheKeys) await caches.delete(k);  // limpa TODOS os caches
+          for (const k of cacheKeys) await caches.delete(k);
           localStorage.setItem(KILL_VERSION_KEY, "1");
-          console.log("[PWA] SW velho removido (v3)");
+          console.log("[PWA] SW velho removido (v4)");
         }
-
         const reg = await navigator.serviceWorker.register("./service-worker.js");
         console.log("[PWA] SW registrado:", reg.scope);
         setInterval(() => reg.update().catch(() => {}), 5 * 60 * 1000);
-      } catch (err) {
-        console.warn("[PWA] SW falhou:", err);
-      }
+      } catch (err) { console.warn("[PWA] SW falhou:", err); }
     });
   }
 </script>
+
 </body>
 </html>
