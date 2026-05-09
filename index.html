@@ -491,6 +491,9 @@
     max-width: 520px;
     margin: 0 auto;
     width: 100%;
+    opacity: 0.12;
+    transition: opacity 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: none;
   }
   @media (min-width: 720px) {
     .shortcuts {
@@ -498,6 +501,23 @@
       max-width: 980px;
       gap: 14px;
     }
+  }
+  /* Desktop: revela no hover na seção inferior */
+  @media (hover: hover) {
+    main > section:last-of-type:hover .shortcuts,
+    .shortcuts:hover,
+    .shortcuts:focus-within {
+      opacity: 1;
+      pointer-events: auto;
+    }
+  }
+  /* Touch (sem hover): mostra discreto, sempre acessível */
+  @media (hover: none) {
+    .shortcuts {
+      opacity: 0.55;
+      pointer-events: auto;
+    }
+    .shortcuts:focus-within { opacity: 1; }
   }
 
   .sc {
