@@ -74,6 +74,33 @@ A URL da função será:
 https://bkfkzauhnlulrtttgcii.supabase.co/functions/v1/clara-respond
 ```
 
+### Configurar RLS (Row Level Security) — OBRIGATÓRIO
+
+Sem isso, qualquer pessoa com a anon key (visível no HTML) pode ler e escrever suas mensagens.
+
+No Supabase Dashboard → **Authentication → Policies**:
+
+**Tabela `clara_messages`:**
+```sql
+-- Habilita RLS
+ALTER TABLE clara_messages ENABLE ROW LEVEL SECURITY;
+
+-- Só você (autenticado) pode inserir e ler
+CREATE POLICY "owner only"
+  ON clara_messages
+  FOR ALL
+  USING (auth.uid() IS NOT NULL)
+  WITH CHECK (auth.uid() IS NOT NULL);
+```
+
+**Storage bucket `clara-audio`:**
+- Bucket type: **Private** (não public)
+- Upload policy: autenticados apenas
+
+> Para usar com o frontend, você precisa fazer login via `supabase.auth.signInWithPassword` antes de enviar mensagens. O README de frontend será atualizado quando adicionarmos autenticação.
+
+---
+
 ### Configurar Database Webhook
 
 No Supabase Dashboard → **Database → Webhooks → Create a new hook**:
@@ -86,7 +113,7 @@ No Supabase Dashboard → **Database → Webhooks → Create a new hook**:
 | Type | `HTTP Request` |
 | Method | `POST` |
 | URL | `https://bkfkzauhnlulrtttgcii.supabase.co/functions/v1/clara-respond` |
-| Header `Authorization` | `Bearer <CLARA_WEBHOOK_SECRET>` (se configurado) |
+| Header `Authorization` | `Bearer <CLARA_WEBHOOK_SECRET>` (**obrigatório**) |
 
 ### Testar manualmente
 
