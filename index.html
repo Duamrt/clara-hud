@@ -766,14 +766,8 @@
       ${circuit}${innerNodes}
     `);
 
-    // Camada 5 — Labels técnicos
-    const labels = ["CLARA-01", "DM·STACK", "AUTH·OK", "GEM·2.5", "11LABS", "Δ·SYNC"];
-    let labelStr = "";
-    labels.forEach((txt, i) => {
-      const a = (i / labels.length) * 360;
-      labelStr += `<g transform="rotate(${a})"><text class="label" x="0" y="-178" text-anchor="middle">${txt}</text></g>`;
-    });
-    html += layer("layer-spin-fast", labelStr);
+    // Camada 5 — Labels técnicos REMOVIDOS (poluição visual)
+    // Anéis e órbitas giram limpos, foco total no núcleo central.
 
     // Camada 6 — Núcleo brilhante central (estático, não rotaciona — só pulsa)
     html += layer("layer-static", `
