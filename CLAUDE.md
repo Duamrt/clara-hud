@@ -75,8 +75,15 @@ Regras: não avança sem M anterior verde. Toggle desliga tudo em segundos.
   - Pendente: deploy + database webhook + RLS no Supabase Dashboard
 - `supabase/functions/clara-index/` — futuro indexer
 - `supabase/functions/clara-search/` — futuro search
+- `supabase/migrations/` — schema do pgvector + clara_knowledge
 
 Branch ativa: `claude/analyze-photos-xfS9V`
+
+## Repos relacionados
+
+- `Duamrt/clara-hud` (público) — HUD + Edge Functions
+- `Duamrt/dm-stack-strategy` (privado) — vault Obsidian indexado pela Clara
+- `Duamrt/DM-STACK-BACKUPS` (privado) — backups do Supabase (não relacionado à Clara)
 
 ## Convenções
 
