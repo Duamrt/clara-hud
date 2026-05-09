@@ -503,11 +503,11 @@
   .sc {
     position: relative;
     background:
-      linear-gradient(180deg, rgba(255,122,153,0.045) 0%, rgba(255,122,153,0.012) 100%),
-      rgba(8, 4, 14, 0.5);
+      linear-gradient(180deg, rgba(255,122,153,0.035) 0%, rgba(255,122,153,0.008) 100%),
+      rgba(8, 4, 14, 0.4);
     border: 1px solid var(--hairline);
-    border-radius: 10px;
-    padding: 12px 12px 10px;
+    border-radius: 8px;
+    padding: 8px 10px;
     cursor: pointer;
     transition: all 0.25s ease;
     overflow: hidden;
@@ -515,42 +515,21 @@
     color: inherit;
     font-family: inherit;
     display: flex;
-    flex-direction: column;
+    align-items: center;
     gap: 8px;
-    min-height: 86px;
+    min-height: 44px;
+    opacity: 0.78;
   }
-  .sc::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 14px;
-    height: 1px;
-    background: var(--accent);
-    opacity: 0.6;
-    transition: width 0.3s ease;
-  }
-  .sc::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 1px;
-    height: 14px;
-    background: var(--accent);
-    opacity: 0.6;
-    transition: height 0.3s ease;
-  }
+  .sc:hover { opacity: 1; }
+  .sc::before, .sc::after { display: none; }
   .sc:hover {
     border-color: var(--hairline-strong);
     background:
-      linear-gradient(180deg, rgba(255,122,153,0.085) 0%, rgba(255,122,153,0.025) 100%),
-      rgba(14, 6, 20, 0.7);
+      linear-gradient(180deg, rgba(255,122,153,0.07) 0%, rgba(255,122,153,0.02) 100%),
+      rgba(14, 6, 20, 0.6);
     transform: translateY(-1px);
-    box-shadow: 0 8px 22px rgba(0,0,0,0.4), 0 0 22px rgba(255,122,153,0.08);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.4), 0 0 14px rgba(255,122,153,0.06);
   }
-  .sc:hover::before { width: 28px; }
-  .sc:hover::after  { height: 28px; }
 
   .sc:focus-visible {
     outline: none;
@@ -565,62 +544,43 @@
       rgba(20, 8, 26, 0.8);
   }
 
-  .sc__head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-  }
+  .sc__head { display: contents; }
   .sc__icon {
-    width: 18px;
-    height: 18px;
+    width: 14px;
+    height: 14px;
     color: var(--accent);
-    opacity: 0.85;
+    opacity: 0.7;
     flex-shrink: 0;
   }
-  .sc__id {
-    font-size: 8px;
-    letter-spacing: 0.2em;
-    color: var(--text-faint);
-    font-weight: 500;
+  .sc__id { display: none; }
+  .sc__bar { display: none; }
+  .sc__body {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+    flex: 1;
   }
   .sc__code {
-    font-size: 16px;
+    font-size: 12px;
     font-weight: 600;
     letter-spacing: 0.14em;
     color: var(--text);
     line-height: 1;
   }
   .sc__label {
-    font-size: 8.5px;
-    letter-spacing: 0.22em;
-    color: var(--text-dim);
+    font-size: 7px;
+    letter-spacing: 0.18em;
+    color: var(--text-faint);
     text-transform: uppercase;
     font-weight: 500;
-    line-height: 1.4;
-    margin-top: auto;
+    line-height: 1.2;
   }
-  .sc__bar {
-    height: 2px;
-    width: 100%;
-    background: rgba(255,122,153,0.08);
-    border-radius: 2px;
-    overflow: hidden;
-    margin-top: 4px;
-  }
-  .sc__bar > i {
-    display: block;
-    height: 100%;
-    background: var(--accent);
-    width: 30%;
-    box-shadow: 0 0 6px var(--accent);
-    transition: width 0.5s ease;
-  }
-
   @media (min-width: 720px) {
-    .sc { padding: 14px 14px 12px; min-height: 96px; }
-    .sc__code { font-size: 18px; }
-    .sc__label { font-size: 9px; }
+    .sc { padding: 9px 12px; min-height: 48px; }
+    .sc__icon { width: 15px; height: 15px; }
+    .sc__code { font-size: 13px; }
+    .sc__label { font-size: 7.5px; }
   }
 
   /* ===== SYSTEM BAR (top-center thin row) ===== */
@@ -1325,24 +1285,15 @@
     btn.type = 'button';
     btn.setAttribute('data-code', s.code);
     btn.innerHTML = `
-      <div class="sc__head">
-        <svg class="sc__icon" viewBox="0 0 18 18" fill="none">${ICONS[s.icon]}</svg>
-        <span class="sc__id">${s.id}</span>
-      </div>
-      <div>
+      <svg class="sc__icon" viewBox="0 0 18 18" fill="none">${ICONS[s.icon]}</svg>
+      <div class="sc__body">
         <div class="sc__code">${s.code}</div>
         <div class="sc__label">${s.label}</div>
       </div>
-      <div class="sc__bar"><i style="width:${20 + (idx * 13) % 65}%"></i></div>
     `;
     btn.addEventListener('click', () => {
       document.querySelectorAll('.sc').forEach(x => x.classList.remove('is-active'));
       btn.classList.add('is-active');
-      // pulse the bar
-      const bar = btn.querySelector('.sc__bar > i');
-      const cur = parseInt(bar.style.width);
-      const next = Math.min(95, cur + 8 + Math.floor(Math.random() * 18));
-      bar.style.width = next + '%';
     });
     sc.appendChild(btn);
   });
