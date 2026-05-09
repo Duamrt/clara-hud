@@ -100,6 +100,10 @@ Branch ativa: `claude/analyze-photos-xfS9V`
 - Push back quando vir problema, não acomodar
 - Quando incerto, pedir mais contexto antes de codar
 
+## Backlog (fora do escopo atual, arrumar depois)
+
+- GitHub Actions `backup-dmpay.yml` no repo `Duamrt/DM-STACK-BACKUPS` falhando: dump exit code 1 (30s), warning de `actions/checkout@v4` rodando em Node.js 20 deprecated. Investigar workflow do backup do Supabase do DM Pay.
+
 ## Não fazer
 
 - Avançar fase sem OK visual do Duam
