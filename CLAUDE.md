@@ -17,6 +17,7 @@ Frontend PWA em https://clara.dmstack.com.br | Backend Supabase Edge Functions.
 - **RAG sobre Obsidian** (via mirror em GitHub privado → webhook → Supabase pgvector) — priorizado v1
 - **Auto-RAG** (busca sempre, não Claude-decide) — escolha v1
 - **Privacidade**: só pasta `/Estrategia/` indexada, nunca vault inteiro
+- **Obsidian sempre atualizado, nunca acumular**: cada nota é fonte única de verdade. Mudou? Atualiza in-place. Proibido criar `-v2`, `-old`, `-draft`, duplicatas. RAG só é bom se a fonte for limpa.
 - **Model routing** (Haiku classifier antes do Sonnet) — ABORTADO. Cache já corta 80% do custo.
 - **n8n / Home Assistant** — ABORTADO. Edge Functions chamam APIs direto via tool calling.
 - **Voz** entra só depois do RAG estável.
