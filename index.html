@@ -550,6 +550,36 @@
     display: flex; align-items: center; justify-content: center;
   }
   .msg-audio-row button:hover { background: rgba(255,122,153,0.3); }
+
+  /* Mic Visualizer (equalizer ao gravar) */
+  .mic-visualizer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    height: 0;
+    overflow: hidden;
+    padding: 0 18px;
+    border-top: 1px solid transparent;
+    transition: height 0.28s cubic-bezier(0.4,0,0.2,1),
+                padding 0.28s ease,
+                border-color 0.28s ease;
+  }
+  .mic-visualizer.active {
+    height: 38px;
+    padding: 6px 18px;
+    border-top: 1px solid var(--border-soft);
+  }
+  .mic-bar {
+    width: 3px;
+    min-height: 3px;
+    background: var(--accent);
+    border-radius: 2px;
+    box-shadow: 0 0 4px rgba(255,122,153,0.6);
+    transform: scaleY(0.15);
+    transform-origin: center;
+    transition: transform 0.06s ease;
+  }
 </style>
 </head>
 <body>
@@ -615,6 +645,7 @@
       <div class="msg system">Início da conversa</div>
       <div class="msg clara">Tô aqui, Chefe. Manda.</div>
     </div>
+    <div class="mic-visualizer" id="micVisualizer" aria-hidden="true"></div>
     <form class="chat-input-wrap" id="chatForm">
       <textarea class="chat-input" id="chatInput" rows="1"
                 placeholder="Digite ou aperte o mic..."
@@ -969,9 +1000,71 @@
 
   // === Mic recorder ===
   const chatMic = document.getElementById("chatMic");
+  const micViz  = document.getElementById("micVisualizer");
   let mediaRecorder = null;
   let recordedChunks = [];
   let recordingStartTs = 0;
+
+  // === Audio Visualizer ===
+  const NUM_BARS = 28;
+  let audioCtx = null;
+  let analyser = null;
+  let vizFrame = null;
+  let vizSource = null;
+  // Cria as barras 1x
+  (function initBars(){
+    micViz.innerHTML = "";
+    for (let i = 0; i < NUM_BARS; i++) {
+      const bar = document.createElement("div");
+      bar.className = "mic-bar";
+      micViz.appendChild(bar);
+    }
+  })();
+  const vizBars = micViz.children;
+
+  function startVisualizer(stream) {
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === "suspended") audioCtx.resume();
+      vizSource = audioCtx.createMediaStreamSource(stream);
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.7;
+      vizSource.connect(analyser);
+      micViz.classList.add("active");
+
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      const sliceStep = Math.floor(data.length * 0.7 / NUM_BARS); // ignora highs vazios
+      function draw() {
+        analyser.getByteFrequencyData(data);
+        for (let i = 0; i < NUM_BARS; i++) {
+          // Distância do centro pra dar simetria mirror
+          const center = (NUM_BARS - 1) / 2;
+          const dist = Math.abs(i - center);
+          const idx = Math.floor(dist * sliceStep) + 2;
+          const v = (data[idx] || 0) / 255;
+          const scale = 0.15 + v * 1.4;     // 0.15..1.55
+          vizBars[i].style.transform = `scaleY(${Math.min(scale, 1.6).toFixed(3)})`;
+        }
+        vizFrame = requestAnimationFrame(draw);
+      }
+      draw();
+    } catch (err) {
+      console.warn("[viz] erro:", err);
+    }
+  }
+
+  function stopVisualizer() {
+    if (vizFrame) cancelAnimationFrame(vizFrame);
+    vizFrame = null;
+    if (vizSource) { try { vizSource.disconnect(); } catch(_){} vizSource = null; }
+    analyser = null;
+    micViz.classList.remove("active");
+    // Reset visual das barras
+    for (let i = 0; i < vizBars.length; i++) {
+      vizBars[i].style.transform = "scaleY(0.15)";
+    }
+  }
 
   function pickMimeType() {
     const candidates = [
@@ -1011,6 +1104,7 @@
     };
     mediaRecorder.onstop = async () => {
       stream.getTracks().forEach(t => t.stop());
+      stopVisualizer();
       const duration = (Date.now() - recordingStartTs) / 1000;
       if (duration < 0.5) {
         chatMic.classList.remove("recording", "processing");
@@ -1023,6 +1117,7 @@
     mediaRecorder.start();
     chatMic.classList.add("recording");
     chatMic.textContent = "■";
+    startVisualizer(stream);
   }
 
   function stopRecording() {
