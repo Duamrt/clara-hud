@@ -1380,70 +1380,6 @@
     }
   }, 5200);
 
-  /* ============ MIC VISUALIZER — via Supabase broadcast do worker ============ */
-  (function initMicViz() {
-    const micMini = document.getElementById('micMini');
-    const pillDot = document.getElementById('pillDot');
-    const pillLbl = document.getElementById('pillLabel');
-    const bars    = Array.from(micMini.querySelectorAll('.mic-mini__bar'));
-    let animFrame = null;
-    let rmsTarget = 0;
-
-    // Altura mínima por barra (idle = flat, speaking = meio, listening = animado pelo rms)
-    const IDLE_H   = 2;
-    const SPEAK_H  = 6;
-
-    function setFlat(h) {
-      if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null; }
-      bars.forEach(b => { b.style.height = h + 'px'; });
-    }
-
-    function animateRms() {
-      // Distribui rmsTarget pelas barras com forma de sino
-      const N = bars.length;
-      bars.forEach((b, i) => {
-        const center = (N - 1) / 2;
-        const dist   = Math.abs(i - center) / center;      // 0=centro, 1=borda
-        const env    = Math.max(0, 1 - dist * 1.1);        // cone centrado
-        const jitter = 0.85 + Math.random() * 0.3;
-        const h      = Math.max(IDLE_H, rmsTarget * env * jitter);
-        b.style.height = Math.min(h, 14).toFixed(1) + 'px';
-      });
-      animFrame = requestAnimationFrame(animateRms);
-    }
-
-    function applyState(state, rms) {
-      micMini.classList.remove('blocked');
-      pillDot.classList.remove('blocked');
-
-      if (state === 'listening') {
-        rmsTarget = Math.max(4, Math.min(14, (rms || 0) / 18));
-        pillLbl.textContent = 'OUVINDO';
-        if (!animFrame) animateRms();
-
-      } else if (state === 'processing') {
-        setFlat(IDLE_H);
-        pillLbl.textContent = 'PENSANDO';
-
-      } else if (state === 'speaking') {
-        setFlat(SPEAK_H);
-        pillLbl.textContent = 'FALANDO';
-
-      } else {
-        // idle
-        setFlat(IDLE_H);
-        pillLbl.textContent = 'OUVINDO';
-      }
-    }
-
-    // Escuta broadcast do worker Python via Supabase Realtime
-    supa.channel('clara-status')
-      .on('broadcast', { event: 'state' }, ({ payload }) => {
-        applyState(payload.state, payload.rms);
-      })
-      .subscribe();
-  })();
-
   /* ============ SUPABASE CONFIG ============ */
   const SUPABASE_URL = "https://bkfkzauhnlulrtttgcii.supabase.co";
   const SUPABASE_KEY = "sb_publishable_6tsPVQYcS9FlJM0ZwKKH-w_3xRRsm8h";
@@ -1532,6 +1468,47 @@
   /* ============ SUPABASE REALTIME ============ */
   const supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   const seenIds = new Set();
+
+  /* ============ MIC VISUALIZER — via Supabase broadcast do worker ============ */
+  (function initMicViz() {
+    const micMini = document.getElementById('micMini');
+    const pillDot = document.getElementById('pillDot');
+    const pillLbl = document.getElementById('pillLabel');
+    const bars    = Array.from(micMini.querySelectorAll('.mic-mini__bar'));
+    let animFrame = null;
+    let rmsTarget = 0;
+    const IDLE_H = 2, SPEAK_H = 6;
+
+    function setFlat(h) {
+      if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null; }
+      bars.forEach(b => { b.style.height = h + 'px'; });
+    }
+    function animateRms() {
+      const N = bars.length;
+      bars.forEach((b, i) => {
+        const dist = Math.abs(i - (N-1)/2) / ((N-1)/2);
+        const env  = Math.max(0, 1 - dist * 1.1);
+        b.style.height = Math.min(Math.max(IDLE_H, rmsTarget * env * (0.85 + Math.random()*0.3)), 14).toFixed(1) + 'px';
+      });
+      animFrame = requestAnimationFrame(animateRms);
+    }
+    function applyState(state, rms) {
+      if (state === 'listening') {
+        rmsTarget = Math.max(4, Math.min(14, (rms || 0) / 18));
+        pillLbl.textContent = 'OUVINDO';
+        if (!animFrame) animateRms();
+      } else if (state === 'processing') {
+        setFlat(IDLE_H); pillLbl.textContent = 'PENSANDO';
+      } else if (state === 'speaking') {
+        setFlat(SPEAK_H); pillLbl.textContent = 'FALANDO';
+      } else {
+        setFlat(IDLE_H); pillLbl.textContent = 'OUVINDO';
+      }
+    }
+    supa.channel('clara-status')
+      .on('broadcast', { event: 'state' }, ({ payload }) => applyState(payload.state, payload.rms))
+      .subscribe();
+  })();
 
   function renderRow(row, autoplay = true) {
     if (seenIds.has(row.id)) return;
