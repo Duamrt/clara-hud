@@ -1069,7 +1069,7 @@
 
 <script>
   /* ============ VERSÃO ============ */
-  const VERSION = "v2.4";
+  const VERSION = "v2.5";
   document.getElementById("hud-version").textContent = VERSION;
   console.log("[Clara HUD]", VERSION, new Date().toISOString());
 
@@ -1380,45 +1380,68 @@
     }
   }, 5200);
 
-  /* ============ MIC VISUALIZER PRINCIPAL ============ */
-  (async function initMainMic() {
-    const micMini  = document.getElementById('micMini');
-    const pillDot  = document.getElementById('pillDot');
-    const pillLbl  = document.getElementById('pillLabel');
-    const bars     = micMini.querySelectorAll('.mic-mini__bar');
+  /* ============ MIC VISUALIZER — via Supabase broadcast do worker ============ */
+  (function initMicViz() {
+    const micMini = document.getElementById('micMini');
+    const pillDot = document.getElementById('pillDot');
+    const pillLbl = document.getElementById('pillLabel');
+    const bars    = Array.from(micMini.querySelectorAll('.mic-mini__bar'));
+    let animFrame = null;
+    let rmsTarget = 0;
 
-    let stream;
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-    } catch (e) {
-      micMini.classList.add('blocked');
-      pillDot.classList.add('blocked');
-      pillLbl.textContent = 'MIC BLOQUEADO';
-      return;
+    // Altura mínima por barra (idle = flat, speaking = meio, listening = animado pelo rms)
+    const IDLE_H   = 2;
+    const SPEAK_H  = 6;
+
+    function setFlat(h) {
+      if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null; }
+      bars.forEach(b => { b.style.height = h + 'px'; });
     }
 
-    const ctx      = new (window.AudioContext || window.webkitAudioContext)();
-    const source   = ctx.createMediaStreamSource(stream);
-    const analyser = ctx.createAnalyser();
-    analyser.fftSize = 32;
-    analyser.smoothingTimeConstant = 0.75;
-    source.connect(analyser);
-
-    const data = new Uint8Array(analyser.frequencyBinCount);
-    const N    = bars.length;
-
-    function draw() {
-      analyser.getByteFrequencyData(data);
-      for (let i = 0; i < N; i++) {
+    function animateRms() {
+      // Distribui rmsTarget pelas barras com forma de sino
+      const N = bars.length;
+      bars.forEach((b, i) => {
         const center = (N - 1) / 2;
-        const dist   = Math.abs(i - center);
-        const idx    = Math.max(0, Math.floor(dist * 2));
-        const v      = (data[idx] || 0) / 255;
-        bars[i].style.height = Math.max(2, v * 14).toFixed(1) + 'px';
-      }
-      requestAnimationFrame(draw);
+        const dist   = Math.abs(i - center) / center;      // 0=centro, 1=borda
+        const env    = Math.max(0, 1 - dist * 1.1);        // cone centrado
+        const jitter = 0.85 + Math.random() * 0.3;
+        const h      = Math.max(IDLE_H, rmsTarget * env * jitter);
+        b.style.height = Math.min(h, 14).toFixed(1) + 'px';
+      });
+      animFrame = requestAnimationFrame(animateRms);
     }
-    draw();
+
+    function applyState(state, rms) {
+      micMini.classList.remove('blocked');
+      pillDot.classList.remove('blocked');
+
+      if (state === 'listening') {
+        rmsTarget = Math.max(4, Math.min(14, (rms || 0) / 18));
+        pillLbl.textContent = 'OUVINDO';
+        if (!animFrame) animateRms();
+
+      } else if (state === 'processing') {
+        setFlat(IDLE_H);
+        pillLbl.textContent = 'PENSANDO';
+
+      } else if (state === 'speaking') {
+        setFlat(SPEAK_H);
+        pillLbl.textContent = 'FALANDO';
+
+      } else {
+        // idle
+        setFlat(IDLE_H);
+        pillLbl.textContent = 'OUVINDO';
+      }
+    }
+
+    // Escuta broadcast do worker Python via Supabase Realtime
+    supa.channel('clara-status')
+      .on('broadcast', { event: 'state' }, ({ payload }) => {
+        applyState(payload.state, payload.rms);
+      })
+      .subscribe();
   })();
 
   /* ============ SUPABASE CONFIG ============ */
