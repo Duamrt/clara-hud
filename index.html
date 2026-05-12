@@ -1353,7 +1353,22 @@
   const chatMic    = document.getElementById("chatMic");
   const micViz     = document.getElementById("micVisualizer");
 
+  let audioUnlocked = false;
+  function unlockAudio() {
+    if (audioUnlocked) return;
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const buf = ctx.createBuffer(1, 1, 22050);
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(ctx.destination);
+      src.start(0);
+      ctx.resume().then(() => { audioUnlocked = true; ctx.close(); });
+    } catch(_) {}
+  }
+
   function openChat() {
+    unlockAudio();
     chatPanel.classList.add("open");
     chatPanel.setAttribute("aria-hidden", "false");
     setTimeout(() => chatInput.focus(), 320);
@@ -1362,7 +1377,7 @@
     chatPanel.classList.remove("open");
     chatPanel.setAttribute("aria-hidden", "true");
   }
-  function appendMsg(role, text, audioUrl) {
+  function appendMsg(role, text, audioUrl, autoplay = true) {
     const div = document.createElement("div");
     div.className = `msg ${role}`;
     if (text) {
@@ -1384,7 +1399,7 @@
       lab.textContent = role === "user" ? "🎤 áudio enviado" : "🔊 voz da Clara";
       row.appendChild(lab);
       div.appendChild(row);
-      if (role === "clara") audio.play().catch(err => console.log("[autoplay bloqueado]", err));
+      if (role === "clara" && autoplay) audio.play().catch(err => console.log("[autoplay bloqueado]", err));
     }
     chatMsgs.appendChild(div);
     chatMsgs.scrollTop = chatMsgs.scrollHeight;
@@ -1412,13 +1427,13 @@
   const supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   const seenIds = new Set();
 
-  function renderRow(row) {
+  function renderRow(row, autoplay = true) {
     if (seenIds.has(row.id)) return;
     seenIds.add(row.id);
     const audioUrl = row.metadata && row.metadata.audio_url ? row.metadata.audio_url : null;
     if (row.role === "system") appendMsg("system", row.text);
-    else if (row.role === "user") appendMsg("user", row.text || "", audioUrl);
-    else if (row.role === "clara") appendMsg("clara", row.text || "", audioUrl);
+    else if (row.role === "user") appendMsg("user", row.text || "", audioUrl, false);
+    else if (row.role === "clara") appendMsg("clara", row.text || "", audioUrl, autoplay);
   }
 
   async function loadHistory() {
@@ -1430,7 +1445,7 @@
       .limit(30);
     if (error) { console.warn("[Clara] erro carregar historico:", error); return; }
     chatMsgs.innerHTML = '<div class="msg system">Início da conversa</div>';
-    (data || []).forEach(renderRow);
+    (data || []).forEach(row => renderRow(row, false));
     if (!data || data.length === 0) appendMsg("clara", "Tô aqui, Chefe. Manda.");
   }
   loadHistory();
