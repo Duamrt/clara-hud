@@ -1001,7 +1001,7 @@
     </div>
 
     <div class="footer-cap">
-      <span>DM STACK</span>
+      <span>DM STACK &nbsp;·&nbsp; <span class="v" id="hud-version"></span></span>
     </div>
   </section>
 
@@ -1030,6 +1030,11 @@
 </aside>
 
 <script>
+  /* ============ VERSÃO ============ */
+  const VERSION = "v2.3";
+  document.getElementById("hud-version").textContent = VERSION;
+  console.log("[Clara HUD]", VERSION, new Date().toISOString());
+
   /* ============ CLOCK ============ */
   const tH = document.getElementById('t-h');
   const tM = document.getElementById('t-m');
