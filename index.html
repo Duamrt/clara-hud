@@ -1069,7 +1069,7 @@
 
 <script>
   /* ============ VERSÃO ============ */
-  const VERSION = "v2.5";
+  const VERSION = "v2.6";
   document.getElementById("hud-version").textContent = VERSION;
   console.log("[Clara HUD]", VERSION, new Date().toISOString());
 
@@ -1396,17 +1396,30 @@
   const micViz     = document.getElementById("micVisualizer");
 
   let audioUnlocked = false;
+  let _audioCtxMain = null;
   function unlockAudio() {
     if (audioUnlocked) return;
     try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const buf = ctx.createBuffer(1, 1, 22050);
-      const src = ctx.createBufferSource();
+      _audioCtxMain = new (window.AudioContext || window.webkitAudioContext)();
+      const buf = _audioCtxMain.createBuffer(1, 1, 22050);
+      const src = _audioCtxMain.createBufferSource();
       src.buffer = buf;
-      src.connect(ctx.destination);
+      src.connect(_audioCtxMain.destination);
       src.start(0);
-      ctx.resume().then(() => { audioUnlocked = true; ctx.close(); });
+      _audioCtxMain.resume().then(() => { audioUnlocked = true; });
     } catch(_) {}
+  }
+  async function playAudioUrl(url) {
+    if (!_audioCtxMain || !audioUnlocked) return;
+    try {
+      const resp = await fetch(url);
+      const ab = await resp.arrayBuffer();
+      const decoded = await _audioCtxMain.decodeAudioData(ab);
+      const src = _audioCtxMain.createBufferSource();
+      src.buffer = decoded;
+      src.connect(_audioCtxMain.destination);
+      src.start(0);
+    } catch(e) { console.warn("[clara audio]", e); }
   }
 
   function openChat() {
@@ -1441,7 +1454,7 @@
       lab.textContent = role === "user" ? "🎤 áudio enviado" : "🔊 voz da Clara";
       row.appendChild(lab);
       div.appendChild(row);
-      if (role === "clara" && autoplay) audio.play().catch(err => console.log("[autoplay bloqueado]", err));
+      if (role === "clara" && autoplay) playAudioUrl(audioUrl);
     }
     chatMsgs.appendChild(div);
     chatMsgs.scrollTop = chatMsgs.scrollHeight;
