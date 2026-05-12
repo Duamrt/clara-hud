@@ -855,6 +855,35 @@
     50%     { box-shadow: 0 0 24px rgba(255,48,96,0.9); }
   }
   .chat-mic.processing { opacity: 0.5; pointer-events: none; }
+
+  /* ===== MIC MINI VISUALIZER (pill principal) ===== */
+  .mic-mini {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    height: 16px;
+    margin: 0 2px;
+  }
+  .mic-mini__bar {
+    width: 2px;
+    background: var(--accent);
+    border-radius: 1px;
+    height: 3px;
+    transform-origin: center;
+    transition: height 0.08s ease;
+    opacity: 0.7;
+  }
+  .mic-mini.blocked .mic-mini__bar {
+    background: #ffb070;
+    height: 3px !important;
+    opacity: 0.5;
+  }
+  /* ponto âmbar quando mic bloqueado */
+  #pillDot.blocked::before,
+  #pillDot.blocked::after {
+    background: #ffb070;
+    box-shadow: 0 0 10px #ffb070, 0 0 20px #ffb070;
+  }
 </style>
 </head>
 <body>
@@ -988,11 +1017,20 @@
   <!-- BOTTOM: status + shortcuts -->
   <section>
     <div class="status-wrap">
-      <div class="status-pill" role="status" aria-live="polite">
-        <span class="status-pill__dot" aria-hidden="true"></span>
-        <span>OUVINDO</span>
+      <div class="status-pill" role="status" aria-live="polite" id="statusPill">
+        <span class="status-pill__dot" aria-hidden="true" id="pillDot"></span>
+        <span id="pillLabel">OUVINDO</span>
         <span class="status-pill__sep"></span>
-        <span class="status-pill__cmd">DIGA <span class="q">"</span>HEY JARVIS<span class="q">"</span></span>
+        <div class="mic-mini" id="micMini" aria-hidden="true">
+          <div class="mic-mini__bar"></div>
+          <div class="mic-mini__bar"></div>
+          <div class="mic-mini__bar"></div>
+          <div class="mic-mini__bar"></div>
+          <div class="mic-mini__bar"></div>
+          <div class="mic-mini__bar"></div>
+          <div class="mic-mini__bar"></div>
+        </div>
+        <span class="status-pill__cmd" id="pillCmd">DIGA <span class="q">"</span>HEY CLARA<span class="q">"</span></span>
       </div>
     </div>
 
@@ -1324,16 +1362,15 @@
   });
 
   /* ============ STATUS PILL pseudo-listening cycle ============ */
-  const pillCmd = document.querySelector('.status-pill__cmd');
   const STATES = [
-    'DIGA <span class="q">"</span>HEY JARVIS<span class="q">"</span>',
     'DIGA <span class="q">"</span>HEY CLARA<span class="q">"</span>',
     'AGUARDANDO COMANDO',
-    'DIGA <span class="q">"</span>HEY JARVIS<span class="q">"</span>'
+    'DIGA <span class="q">"</span>HEY CLARA<span class="q">"</span>',
   ];
   let stIdx = 0;
   setInterval(() => {
     stIdx = (stIdx + 1) % STATES.length;
+    const pillCmd = document.getElementById('pillCmd');
     if (pillCmd) {
       pillCmd.style.opacity = '0.3';
       setTimeout(() => {
@@ -1342,6 +1379,47 @@
       }, 220);
     }
   }, 5200);
+
+  /* ============ MIC VISUALIZER PRINCIPAL ============ */
+  (async function initMainMic() {
+    const micMini  = document.getElementById('micMini');
+    const pillDot  = document.getElementById('pillDot');
+    const pillLbl  = document.getElementById('pillLabel');
+    const bars     = micMini.querySelectorAll('.mic-mini__bar');
+
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    } catch (e) {
+      micMini.classList.add('blocked');
+      pillDot.classList.add('blocked');
+      pillLbl.textContent = 'MIC BLOQUEADO';
+      return;
+    }
+
+    const ctx      = new (window.AudioContext || window.webkitAudioContext)();
+    const source   = ctx.createMediaStreamSource(stream);
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 32;
+    analyser.smoothingTimeConstant = 0.75;
+    source.connect(analyser);
+
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    const N    = bars.length;
+
+    function draw() {
+      analyser.getByteFrequencyData(data);
+      for (let i = 0; i < N; i++) {
+        const center = (N - 1) / 2;
+        const dist   = Math.abs(i - center);
+        const idx    = Math.max(0, Math.floor(dist * 2));
+        const v      = (data[idx] || 0) / 255;
+        bars[i].style.height = Math.max(2, v * 14).toFixed(1) + 'px';
+      }
+      requestAnimationFrame(draw);
+    }
+    draw();
+  })();
 
   /* ============ SUPABASE CONFIG ============ */
   const SUPABASE_URL = "https://bkfkzauhnlulrtttgcii.supabase.co";
