@@ -1069,7 +1069,7 @@
 
 <script>
   /* ============ VERSÃO ============ */
-  const VERSION = "v2.6";
+  const VERSION = "v2.7";
   document.getElementById("hud-version").textContent = VERSION;
   console.log("[Clara HUD]", VERSION, new Date().toISOString());
 
@@ -1580,6 +1580,32 @@
   let recordingStartTs = 0;
   const NUM_BARS = 28;
   let audioCtx = null, analyser = null, vizFrame = null, vizSource = null;
+  let _vadInterval = null, _vadNoVoiceTimer = null, _vadMaxTimer = null;
+  function _clearVadTimers() {
+    if (_vadInterval) clearInterval(_vadInterval);
+    if (_vadNoVoiceTimer) clearTimeout(_vadNoVoiceTimer);
+    if (_vadMaxTimer) clearTimeout(_vadMaxTimer);
+    _vadInterval = _vadNoVoiceTimer = _vadMaxTimer = null;
+  }
+  function _startVad() {
+    _clearVadTimers();
+    let hasVoice = false, silenceStart = null;
+    _vadInterval = setInterval(() => {
+      if (!analyser) return;
+      const d = new Uint8Array(analyser.frequencyBinCount);
+      analyser.getByteFrequencyData(d);
+      const rms = d.reduce((s, v) => s + v, 0) / d.length / 255;
+      if (rms > 0.04) { hasVoice = true; silenceStart = null; }
+      else if (hasVoice) {
+        if (!silenceStart) silenceStart = Date.now();
+        if (Date.now() - silenceStart > 1400) { _clearVadTimers(); stopRecording(); }
+      }
+    }, 80);
+    // sem voz nenhuma em 3s → cancela
+    _vadNoVoiceTimer = setTimeout(() => { if (!hasVoice) { _clearVadTimers(); stopRecording(); } }, 3000);
+    // limite máximo absoluto: 10s
+    _vadMaxTimer = setTimeout(() => { _clearVadTimers(); stopRecording(); }, 10000);
+  }
 
   // Cria barras 1x
   (function initBars(){
@@ -1677,9 +1703,11 @@
     chatMic.classList.add("recording");
     chatMic.textContent = "■";
     startVisualizer(stream);
+    _startVad();
   }
 
   function stopRecording() {
+    _clearVadTimers();
     if (mediaRecorder && mediaRecorder.state === "recording") {
       chatMic.classList.remove("recording");
       chatMic.classList.add("processing");
